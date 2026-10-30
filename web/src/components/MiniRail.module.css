@@ -1,0 +1,36 @@
+.rail {
+  display: flex;
+  gap: 3px;
+  width: 100%;
+  min-width: 120px;
+}
+
+.segment {
+  flex: 1;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--color-raised);
+  box-shadow: inset 0 0 0 1px var(--color-border);
+}
+
+.segment[data-state="done"] {
+  background: var(--state-done);
+  box-shadow: none;
+}
+.segment[data-state="running"] {
+  background: var(--state-running);
+  box-shadow: none;
+}
+.segment[data-state="awaiting"] {
+  background: var(--state-awaiting);
+  box-shadow: none;
+}
+.segment[data-state="failed"] {
+  background: var(--state-failed);
+  box-shadow: none;
+}
+.segment[data-state="skipped"],
+.segment[data-state="not_applicable"] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--state-skipped);
+}

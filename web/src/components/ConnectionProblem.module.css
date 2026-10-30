@@ -1,0 +1,29 @@
+.box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 72ch;
+  padding: var(--space-4);
+  border: 1px solid var(--state-failed);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+}
+
+.title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.text {
+  color: var(--color-text-2);
+}
+
+.command {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-ground);
+  font-size: var(--text-sm);
+  overflow-x: auto;
+}

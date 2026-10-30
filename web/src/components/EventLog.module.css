@@ -1,0 +1,141 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-2);
+}
+
+.status[data-state="open"] circle {
+  fill: var(--state-done);
+}
+
+.status[data-state="connecting"] circle,
+.status[data-state="reconnecting"] circle {
+  fill: none;
+  stroke: var(--state-running);
+  stroke-width: 1.5;
+}
+
+.status[data-state="reconnecting"] {
+  color: var(--state-running);
+}
+
+.status[data-state="ended"] circle {
+  fill: none;
+  stroke: var(--state-done);
+  stroke-width: 1.5;
+}
+
+.status[data-state="not_found"],
+.status[data-state="unavailable"] {
+  color: var(--state-failed-text);
+}
+
+.status path {
+  stroke: var(--state-failed);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.note {
+  padding: var(--space-2) var(--space-4) 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-2);
+}
+
+.empty {
+  padding: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--color-text-2);
+}
+
+/* Contenedor con role="log" (el <ol> conserva su semántica de lista). */
+.scroller {
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-2) 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 40px 72px minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: baseline;
+  padding: var(--space-1) var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.seq,
+.time {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-2);
+}
+
+.body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-2);
+  min-width: 0;
+}
+
+.type {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-2);
+}
+
+.row[data-tone="done"] .type {
+  color: var(--state-done);
+}
+.row[data-tone="running"] .type {
+  color: var(--state-running);
+}
+.row[data-tone="awaiting"] .type {
+  color: var(--state-awaiting);
+}
+.row[data-tone="failed"] .type {
+  color: var(--state-failed-text);
+}
+
+.text {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .row {
+    grid-template-columns: 30px 60px minmax(0, 1fr);
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-3);
+  }
+}

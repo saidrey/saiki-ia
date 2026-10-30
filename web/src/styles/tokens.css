@@ -1,0 +1,74 @@
+/*
+ * Tokens de Jev. Paleta azul oscuro aprobada (2026-10-30), adaptada a la
+ * dirección "panel de mando ferroviario" de docs/FRONTEND_PROPOSAL.md.
+ *
+ * Contraste medido (WCAG 2.2) sobre --color-ground / --color-surface:
+ *  - --color-text 18.6 / 17.0, --color-text-2 7.6 / 6.9: aptos para texto.
+ *  - --state-pending 4.1 / 3.7: SOLO formas (≥3:1), nunca texto.
+ *  - --state-skipped 2.6 / 2.3: no alcanza 3:1; va siempre con etiqueta en
+ *    --color-text-2 y forma propia (anillo discontinuo), nunca solo.
+ *  - --color-border 1.9: solo separadores decorativos. Los límites de controles
+ *    usan --color-border-strong (4.1).
+ *  - --color-primary como fondo con --color-on-primary: 4.9. No usarlo como texto.
+ *  - --state-failed sobre --color-raised es 3.9: para texto usar --state-failed-text.
+ */
+:root {
+  /* Superficies */
+  --color-ground: #080d18;
+  --color-surface: #111827;
+  --color-raised: #1e293b;
+  --color-border: #334155;
+  --color-border-strong: #64748b;
+
+  /* Texto */
+  --color-text: #f8fafc;
+  --color-text-2: #94a3b8;
+
+  /* Acción */
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-on-primary: #f8fafc;
+  --color-focus: #f8fafc;
+
+  /* Estados (semánticos; siempre acompañados de forma y etiqueta) */
+  --state-pending: #64748b;
+  --state-running: #38bdf8;
+  --state-done: #22c55e;
+  --state-done-track: #15803d;
+  --state-failed: #ef4444;
+  --state-failed-text: #f87171;
+  --state-awaiting: #f59e0b;
+  --state-awaiting-surface: #2a1f08;
+  --state-awaiting-hover: #fbbf24;
+  --state-skipped: #475569;
+
+  /* Tipografía */
+  --font-sans: "Overpass", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Overpass Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --text-xs: 0.8125rem; /* 13 */
+  --text-sm: 0.875rem; /* 14 */
+  --text-md: 0.9375rem; /* 15 */
+  --text-lg: 1.0625rem; /* 17 */
+  --text-xl: 1.625rem; /* 26 */
+  --leading-body: 1.5;
+  --leading-tight: 1.25;
+
+  /* Espaciado (escala de 4 px) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+
+  /* Forma */
+  --radius-control: 6px;
+  --radius-panel: 8px;
+  --radius-dialog: 10px;
+
+  /* Movimiento */
+  --duration-fast: 150ms;
+  --duration-base: 220ms;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+}

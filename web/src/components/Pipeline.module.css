@@ -1,0 +1,203 @@
+/* ── Escritorio: vía horizontal ─────────────────────────────────────────── */
+.pipeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+}
+
+.station {
+  min-width: 0;
+  display: flex;
+}
+
+.button {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-2) 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-panel);
+  background: transparent;
+  text-align: center;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.button:hover {
+  background: var(--color-raised);
+}
+
+/* Contorno con sombra interior (no borde) para no cortar la vía entre estaciones. */
+.button[aria-pressed="true"] {
+  background: var(--color-raised);
+  box-shadow: inset 0 0 0 1px var(--color-border-strong);
+}
+
+.number {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-2);
+}
+
+.rail {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 32px;
+}
+
+.track {
+  position: absolute;
+  top: 50%;
+  height: 4px;
+  width: 50%;
+  margin-top: -2px;
+  background: transparent;
+}
+
+.track[data-side="in"] {
+  left: 0;
+}
+.track[data-side="out"] {
+  right: 0;
+}
+
+.track[data-track="off"] {
+  background: var(--color-border);
+}
+.track[data-track="done"] {
+  background: var(--state-done-track);
+}
+.track[data-track="active"] {
+  background: var(--state-running);
+}
+.track[data-track="approach"] {
+  background: var(--state-awaiting);
+}
+
+/* El marcador va por encima de la vía (los tramos son absolutos y van después en el DOM). */
+.rail > svg {
+  position: relative;
+  z-index: 1;
+}
+
+/* Señal de una puerta (HU / viabilidad parcial) sobre el tramo de salida. */
+.gate {
+  position: absolute;
+  right: -10px;
+  top: 50%;
+  margin-top: -10px;
+  display: flex;
+  z-index: 2;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 var(--space-1);
+  min-width: 0;
+}
+
+.label {
+  font-size: var(--text-sm);
+  line-height: 1.3;
+  font-weight: 600;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.station[data-state="pending"] .label,
+.station[data-state="skipped"] .label,
+.station[data-state="not_applicable"] .label {
+  font-weight: 400;
+  color: var(--color-text-2);
+}
+
+.state {
+  font-size: var(--text-xs);
+  color: var(--color-text-2);
+}
+
+.station[data-state="done"] .state {
+  color: var(--state-done);
+}
+.station[data-state="running"] .state {
+  color: var(--state-running);
+}
+.station[data-state="awaiting"] .state {
+  color: var(--state-awaiting);
+}
+.station[data-state="failed"] .state {
+  color: var(--state-failed-text);
+}
+
+.gateText {
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--state-awaiting);
+}
+
+/* ── Móvil y ventanas estrechas: vía vertical ───────────────────────────── */
+@media (max-width: 860px) {
+  .pipeline {
+    grid-template-columns: 1fr;
+  }
+
+  .button {
+    display: grid;
+    grid-template-columns: 24px 32px minmax(0, 1fr);
+    align-items: stretch;
+    gap: 0 var(--space-3);
+    padding: 0 var(--space-2) 0 0;
+    text-align: left;
+  }
+
+  .number {
+    padding-top: var(--space-3);
+    text-align: right;
+  }
+
+  .rail {
+    height: auto;
+    min-height: 64px;
+    flex-direction: column;
+  }
+
+  .track {
+    left: 50%;
+    width: 4px;
+    height: 50%;
+    margin: 0 0 0 -2px;
+    top: auto;
+  }
+
+  .track[data-side="in"] {
+    top: 0;
+    left: 50%;
+  }
+  .track[data-side="out"] {
+    bottom: 0;
+    right: auto;
+  }
+
+  .gate {
+    right: auto;
+    left: 50%;
+    top: auto;
+    bottom: -10px;
+    margin: 0 0 0 -10px;
+  }
+
+  .text {
+    justify-content: center;
+    padding: var(--space-2) 0;
+  }
+}

@@ -1,0 +1,32 @@
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-2);
+  white-space: nowrap;
+}
+
+.mark {
+  flex: none;
+}
+
+.status[data-state="connected"] .mark circle {
+  fill: var(--state-done);
+}
+
+.status[data-state="checking"] .mark circle {
+  fill: none;
+  stroke: var(--state-pending);
+  stroke-width: 1.5;
+}
+
+.status[data-state="unreachable"] {
+  color: var(--state-failed-text);
+}
+
+.status[data-state="unreachable"] .mark path {
+  stroke: var(--state-failed);
+  stroke-width: 2;
+  stroke-linecap: round;
+}

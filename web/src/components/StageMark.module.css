@@ -1,0 +1,81 @@
+.mark {
+  flex: none;
+  overflow: visible;
+}
+
+.mark[data-state="done"] {
+  color: var(--state-done);
+}
+.mark[data-state="running"] {
+  color: var(--state-running);
+}
+.mark[data-state="awaiting"] {
+  color: var(--state-awaiting);
+}
+.mark[data-state="failed"] {
+  color: var(--state-failed);
+}
+.mark[data-state="pending"] {
+  color: var(--state-pending);
+}
+.mark[data-state="skipped"],
+.mark[data-state="not_applicable"] {
+  color: var(--state-skipped);
+}
+
+.fill,
+.core,
+.dot {
+  fill: currentColor;
+}
+
+.ink {
+  fill: none;
+  stroke: var(--color-ground);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ring {
+  fill: var(--color-ground);
+  stroke: currentColor;
+  stroke-width: 2.4;
+}
+
+.hollow {
+  fill: var(--color-ground);
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.dashed {
+  fill: var(--color-ground);
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-dasharray: 3 3;
+}
+
+.slash {
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+/* Pulso solo cuando la ejecución se está observando en vivo (actividad real). */
+.mark[data-live] .core {
+  transform-origin: 14px 14px;
+  animation: pulse 1.4s var(--ease-out) infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.7);
+  }
+}

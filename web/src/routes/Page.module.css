@@ -1,0 +1,72 @@
+/* Piezas comunes de las páginas. */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.narrow {
+  max-width: 72ch;
+  gap: var(--space-4);
+}
+
+/* Página fuera del AppShell (p. ej. error de ruta raíz). */
+.standalone {
+  padding: var(--space-8) var(--space-6);
+}
+
+.title {
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .title {
+    font-size: 1.3125rem; /* 21 */
+  }
+}
+
+.heading {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.text {
+  color: var(--color-text-2);
+}
+
+.error {
+  color: var(--state-failed-text);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-6);
+  font-size: var(--text-sm);
+  color: var(--color-text-2);
+}
+
+/* Aviso en línea: "blocked" = una acción se bloqueará; "info" = dato a tener en cuenta. */
+.notice {
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--state-failed);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  font-size: var(--text-sm);
+  max-width: 90ch;
+}
+
+.notice[data-tone="info"] {
+  border-left-color: var(--color-border-strong);
+  color: var(--color-text-2);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}

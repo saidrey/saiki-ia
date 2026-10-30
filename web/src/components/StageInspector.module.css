@@ -1,0 +1,130 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+}
+
+.panel:focus {
+  outline: none;
+}
+
+.panel:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-2);
+}
+
+.state[data-state="done"] {
+  color: var(--state-done);
+}
+.state[data-state="running"] {
+  color: var(--state-running);
+}
+.state[data-state="awaiting"] {
+  color: var(--state-awaiting);
+}
+.state[data-state="failed"] {
+  color: var(--state-failed-text);
+}
+
+.decision {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-3) var(--space-4) 0;
+  font-size: var(--text-sm);
+  color: var(--state-awaiting);
+}
+
+.fields {
+  margin: 0;
+  padding: var(--space-4);
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.fields dt {
+  color: var(--color-text-2);
+}
+
+.fields dd {
+  margin: 0;
+  min-width: 0;
+}
+
+.detail {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-width: 90ch;
+}
+
+.unavailable {
+  color: var(--color-text);
+}
+
+.reason {
+  color: var(--color-text-2);
+}
+
+.note {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--color-text-2);
+}
+
+.events {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--text-xs);
+}
+
+.error {
+  color: var(--state-failed-text);
+}
+
+.error ul {
+  margin: 0;
+  padding-left: var(--space-4);
+}
+
+@media (max-width: 640px) {
+  .fields {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+  }
+
+  .fields dd {
+    margin-bottom: var(--space-2);
+  }
+}

@@ -1,0 +1,33 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+.env
+.env.*
+
+# Fase 7: almacen persistente de checkpoints (SQLite) — no versionar
+.saiki/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# Artefactos de compilación y cobertura
+*.tsbuildinfo
+coverage/
+
+# Configuración local de herramientas (personal)
+.claude/settings.local.json
+.vscode/
+.idea/
+
+# Claves y certificados
+*.pem
+*.key
+
+# Sandboxes de ejecución, por si alguna vez se crean dentro del repo
+saiki-sandbox-*/
+
+# Skills de Kiro de terceros (gamedev) instaladas localmente: no son del proyecto
+.kiro/skills/
+skills-lock.json

@@ -1,0 +1,32 @@
+.meta {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-6);
+  font-size: var(--text-sm);
+}
+
+.meta div {
+  display: flex;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.meta dt {
+  color: var(--color-text-2);
+}
+
+.meta dd {
+  margin: 0;
+  min-width: 0;
+}
+
+.content {
+  max-width: 80ch;
+  padding: var(--space-4) var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
