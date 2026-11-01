@@ -224,6 +224,14 @@ export const HuState = Annotation.Root({
    */
   project: Annotation<ProjectBinding | null>({ reducer: (cur, next) => cur ?? next ?? null, default: () => null }),
 
+  /**
+   * (Project Context, T8) Snapshot del índice con el que trabaja la ejecución.
+   * Conserva el primer valor fijado (como `project`). El contexto completo no va
+   * al checkpoint: está congelado en `execution_contexts`. null = sin snapshot o
+   * ejecución anterior a T8.
+   */
+  contextSnapshotId: Annotation<string | null>({ reducer: (cur, next) => cur ?? next ?? null, default: () => null }),
+
   /** Directorio donde se aplicó (repo real o sandbox de esta ejecución). "" = aún no se aplicó. */
   applyTarget: Annotation<string>({ reducer: (_c, n) => n, default: () => "" }),
 });

@@ -50,6 +50,20 @@ global apunta a otro registry (p. ej. un Artifactory corporativo).
 npm install
 ```
 
+## Datos locales
+
+El backend (`npm run serve`) guarda su estado en `./.saiki/`. Para usar otra
+ubicación, define `SAIKI_DATA_DIR` con una ruta absoluta; el traslado de datos
+existentes es manual: [docs/API.md §1.1](docs/API.md#11-directorio-de-datos).
+`SAIKI_CONTEXT_REFRESH_MS` (ms, por defecto 30 000) limita cuánto espera una
+ejecución a que se actualice el contexto del proyecto antes del análisis técnico.
+`SAIKI_KIRO_TIMEOUT_MS` (entero positivo en ms, por defecto 60 000) es el tiempo
+máximo de cada llamada a Kiro CLI (análisis de HU, análisis técnico y
+revisiones); un valor inválido detiene el arranque con un mensaje claro.
+`SAIKI_CLAUDE_TIMEOUT_MS` (mismo criterio, por defecto 120 000) es el tiempo
+máximo de cada llamada a Claude Code en el desarrollo. Ambos valores se muestran
+al arrancar.
+
 ## Ejecutar el grafo
 
 ```bash

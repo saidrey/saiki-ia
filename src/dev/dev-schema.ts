@@ -45,6 +45,11 @@ export interface DevContext {
    * versión debe corregir. Vacío en la primera propuesta.
    */
   reviewFindings?: string[];
+  /**
+   * (Project Context, T8) Subconjunto congelado del contexto del proyecto para
+   * el desarrollador (stack y conocimiento aprobado). Orientativo.
+   */
+  projectContext?: string;
 }
 
 // ── SALIDA ─────────────────────────────────────────────────────────────────

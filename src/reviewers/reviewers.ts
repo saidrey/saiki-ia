@@ -2,6 +2,7 @@ import type { AgentRouter } from "../agents/router.js";
 import type { AnalyzedHu } from "../hu/hu-schema.js";
 import type { TechnicalAnalysis } from "../tech/tech-schema.js";
 import type { DevProposal } from "../dev/dev-schema.js";
+import { extractAgentJson } from "../agents/agent-json.js";
 import { buildFunctionalPrompt, buildQualityPrompt } from "./reviewer-instructions.js";
 import {
   validateFunctionalReview,
@@ -15,14 +16,6 @@ import {
  * lectura), parsean el JSON y validan. Sin fallback: fallo/invalido => error
  * explícito (nunca aprobación).
  */
-
-function extractJson(text: string): unknown {
-  const t = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
-  const s = t.indexOf("{");
-  const e = t.lastIndexOf("}");
-  if (s === -1 || e === -1 || e <= s) throw new Error("la respuesta no contiene un objeto JSON");
-  return JSON.parse(t.slice(s, e + 1));
-}
 
 export type FunctionalResult =
   | { ok: true; review: FunctionalReview }
@@ -43,13 +36,9 @@ export async function runFunctionalReview(
   if (res.status === "failure") {
     return { ok: false, error: `Revisor funcional falló: ${res.error ?? "error desconocido"}` };
   }
-  let candidate: unknown;
-  try {
-    candidate = extractJson(res.output);
-  } catch (e) {
-    return { ok: false, error: `Revisión funcional no parseable: ${e instanceof Error ? e.message : String(e)}` };
-  }
-  const v = validateFunctionalReview(candidate);
+  const parsed = extractAgentJson(res.output, (c) => validateFunctionalReview(c).ok);
+  if (!parsed.ok) return { ok: false, error: `Revisión funcional no parseable: ${parsed.error}` };
+  const v = validateFunctionalReview(parsed.value);
   if (!v.ok) return { ok: false, error: `Revisión funcional inválida: ${v.errors.join("; ")}` };
   return { ok: true, review: v.review };
 }
@@ -75,13 +64,9 @@ export async function runQualityReview(
   if (res.status === "failure") {
     return { ok: false, error: `Revisor de calidad falló: ${res.error ?? "error desconocido"}` };
   }
-  let candidate: unknown;
-  try {
-    candidate = extractJson(res.output);
-  } catch (e) {
-    return { ok: false, error: `Revisión de calidad no parseable: ${e instanceof Error ? e.message : String(e)}` };
-  }
-  const v = validateQualityReview(candidate);
+  const parsed = extractAgentJson(res.output, (c) => validateQualityReview(c).ok);
+  if (!parsed.ok) return { ok: false, error: `Revisión de calidad no parseable: ${parsed.error}` };
+  const v = validateQualityReview(parsed.value);
   if (!v.ok) return { ok: false, error: `Revisión de calidad inválida: ${v.errors.join("; ")}` };
   return { ok: true, review: v.review };
 }

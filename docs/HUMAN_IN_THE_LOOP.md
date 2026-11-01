@@ -39,7 +39,7 @@ no sea `approve` explícito es rechazo. Ausencia de respuesta = sigue pausado
 
 ## Aplicación controlada (lo crítico)
 
-- Claude NUNCA escribe (sigue con `--tools ""`, Fase 5). La escritura la hace el
+- Claude NUNCA escribe (solo tiene Read/Glob/Grep; ver `docs/DEVELOPER.md`). La escritura la hace el
   **aplicador** (`src/apply/applier.ts`), código nuestro, separado del modelo.
 - No se ejecutan comandos de shell ni scripts propuestos por el modelo.
 - Formato estructurado `FileChange { path, operation, content }`. La propuesta

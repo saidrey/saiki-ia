@@ -129,9 +129,8 @@ Al terminar una fase, SIEMPRE entregar, además del resumen técnico:
   con el registry público. No borrar ese `.npmrc`.
 - Kiro CLI (rol analyze): auth por **login SSO interactivo** (`kiro-cli login`).
   API key headless BLOQUEADA por la organización SSO corporativa; no reintentar sin confirmación.
-- Claude Code (rol develop): modo PROPUESTA sin escritura. Flags verificados:
-  `-p --tools "" --restricted --strict-mcp-config --disallowedTools Write Edit
-  Bash`. El prompt va por STDIN (los flags variádicos se comen un arg posicional).
+- Claude Code (rol develop): modo PROPUESTA de solo lectura (lee el proyecto, no
+  escribe ni ejecuta). Flags verificados: `-p --tools Read,Glob,Grep --allowedTools Read Glob Grep --permission-mode dontAsk --restricted --strict-mcp-config --disallowedTools Write Edit NotebookEdit Bash WebFetch WebSearch`. El prompt va por STDIN (los flags variádicos se comen un arg posicional).
 - `npm test` y `npm start` NUNCA llaman a CLIs reales (router solo-mock). La
   integración real es opt-in: `npm run manual:kiro` y `npm run manual:claude`.
 - Human-in-the-loop (Fase 6): el grafo PAUSA con `interrupt()` antes de aplicar

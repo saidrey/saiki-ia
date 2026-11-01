@@ -1,5 +1,6 @@
 import type { AgentRouter } from "../agents/router.js";
 import type { AnalyzedHu } from "../hu/hu-schema.js";
+import { extractAgentJson } from "../agents/agent-json.js";
 import { buildTechnicalPrompt } from "./tech-instructions.js";
 import { validateTechnicalAnalysis, type TechnicalAnalysis } from "./tech-schema.js";
 
@@ -18,26 +19,18 @@ export type TechAnalysisResult =
   | { ok: true; analysis: TechnicalAnalysis; unresolvedPaths: string[] }
   | { ok: false; error: string };
 
-function extractJson(text: string): unknown {
-  const trimmed = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
-  const start = trimmed.indexOf("{");
-  const end = trimmed.lastIndexOf("}");
-  if (start === -1 || end === -1 || end <= start) {
-    throw new Error("la respuesta no contiene un objeto JSON");
-  }
-  return JSON.parse(trimmed.slice(start, end + 1));
-}
-
 /** Ejecuta el análisis técnico para una HU aprobada. */
 export async function analyzeTechnical(
   router: AgentRouter,
   hu: AnalyzedHu,
   rootDir: string,
+  /** (T8) Contexto congelado de la ejecución; sin él, el prompt es el de siempre. */
+  projectContext?: string,
 ): Promise<TechAnalysisResult> {
   const agent = router.forRole("technicalAnalyst");
   const result = await agent.run({
     role: "technicalAnalyst",
-    input: buildTechnicalPrompt(hu, rootDir),
+    input: buildTechnicalPrompt(hu, rootDir, projectContext),
     // (Project Registry) El analista lee el repositorio de esta ejecución.
     context: { workingDirectory: rootDir },
   });
@@ -46,15 +39,10 @@ export async function analyzeTechnical(
     return { ok: false, error: `El analista técnico falló: ${result.error ?? "error desconocido"}` };
   }
 
-  let candidate: unknown;
-  try {
-    candidate = extractJson(result.output);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return { ok: false, error: `Análisis técnico no parseable: ${msg}` };
-  }
+  const parsed = extractAgentJson(result.output, (c) => validateTechnicalAnalysis(c, rootDir).ok);
+  if (!parsed.ok) return { ok: false, error: `Análisis técnico no parseable: ${parsed.error}` };
 
-  const validation = validateTechnicalAnalysis(candidate, rootDir);
+  const validation = validateTechnicalAnalysis(parsed.value, rootDir);
   if (!validation.ok) {
     return { ok: false, error: `Análisis técnico inválido: ${validation.errors.join("; ")}` };
   }

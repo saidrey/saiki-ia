@@ -4,6 +4,8 @@ import { dirname } from "node:path";
 import type { ModeratorSession } from "../moderator/moderator-types.js";
 import type { DelegatedTask } from "../moderator/delegation.js";
 import type { ProjectBinding } from "../projects/project-binding.js";
+import type { AnalyzedHu } from "../hu/hu-schema.js";
+import type { ContextSourceRef, ContextTrace, SelectedFile } from "../context/context-builder.js";
 
 /**
  * Store persistente del Core (Fase 15): sesiones del moderador y tareas
@@ -92,6 +94,34 @@ export interface ProjectHistoryRecord {
   at: string;
   /** Valores antes y después, si aplica. */
   details: Record<string, unknown>;
+}
+
+/**
+ * (Project Context, T8) Contexto congelado de una ejecución para una versión de
+ * la HU: lo que recibió cada agente, exactamente, y de dónde salió.
+ */
+export interface ExecutionContextRecord {
+  executionId: string;
+  huVersion: number;
+  /** Sesión que lanzó la ejecución (continuidad futura, §9.4); null si no consta. */
+  sessionId: string | null;
+  projectId: string;
+  snapshotId: string | null;
+  indexHash: string | null;
+  /** HU usada para seleccionar el contexto. */
+  hu: AnalyzedHu;
+  builtAt: string;
+  stale: boolean;
+  staleReason: string | null;
+  sources: ContextSourceRef[];
+  files: SelectedFile[];
+  trace: ContextTrace;
+  /** Texto exacto entregado al analista técnico y su sha256. */
+  bundleHash: string;
+  bundle: string;
+  /** Subconjunto exacto entregado al desarrollador y su sha256. */
+  devBundleHash: string;
+  devBundle: string;
 }
 
 export class CoreStore {
@@ -212,6 +242,35 @@ export class CoreStore {
         BEGIN SELECT RAISE(ABORT, 'execution_projects es inmutable'); END;
       CREATE TRIGGER IF NOT EXISTS execution_projects_immutable_delete BEFORE DELETE ON execution_projects
         BEGIN SELECT RAISE(ABORT, 'execution_projects es inmutable'); END;
+
+      -- (Project Context, T8) Contexto congelado por ejecución y versión de la HU.
+      -- Solo inserción: lo que recibió un agente no cambia nunca.
+      CREATE TABLE IF NOT EXISTS execution_contexts (
+        executionId TEXT NOT NULL,
+        huVersion INTEGER NOT NULL,
+        sessionId TEXT,
+        projectId TEXT NOT NULL,
+        snapshotId TEXT,
+        indexHash TEXT,
+        hu TEXT NOT NULL,
+        builtAt TEXT NOT NULL,
+        stale INTEGER NOT NULL,
+        staleReason TEXT,
+        sources TEXT NOT NULL,
+        files TEXT NOT NULL,
+        trace TEXT NOT NULL,
+        bundleHash TEXT NOT NULL,
+        bundle TEXT NOT NULL,
+        devBundleHash TEXT NOT NULL,
+        devBundle TEXT NOT NULL,
+        PRIMARY KEY (executionId, huVersion)
+      );
+      CREATE INDEX IF NOT EXISTS idx_execution_contexts_project ON execution_contexts(projectId);
+      CREATE INDEX IF NOT EXISTS idx_execution_contexts_session ON execution_contexts(sessionId);
+      CREATE TRIGGER IF NOT EXISTS execution_contexts_immutable_update BEFORE UPDATE ON execution_contexts
+        BEGIN SELECT RAISE(ABORT, 'execution_contexts es inmutable'); END;
+      CREATE TRIGGER IF NOT EXISTS execution_contexts_immutable_delete BEFORE DELETE ON execution_contexts
+        BEGIN SELECT RAISE(ABORT, 'execution_contexts es inmutable'); END;
     `);
   }
 
@@ -414,11 +473,63 @@ export class CoreStore {
     };
   }
 
+  /** Congela el contexto de una ejecución. Lanza si ya existía: no se sustituye nunca. */
+  insertExecutionContext(r: ExecutionContextRecord): void {
+    this.db
+      .prepare(
+        `INSERT INTO execution_contexts (executionId, huVersion, sessionId, projectId, snapshotId, indexHash, hu, builtAt,
+           stale, staleReason, sources, files, trace, bundleHash, bundle, devBundleHash, devBundle)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        r.executionId, r.huVersion, r.sessionId, r.projectId, r.snapshotId, r.indexHash, JSON.stringify(r.hu), r.builtAt,
+        r.stale ? 1 : 0, r.staleReason, JSON.stringify(r.sources), JSON.stringify(r.files), JSON.stringify(r.trace),
+        r.bundleHash, r.bundle, r.devBundleHash, r.devBundle,
+      );
+  }
+
+  getExecutionContext(executionId: string, huVersion: number): ExecutionContextRecord | null {
+    const row = this.db
+      .prepare(`SELECT * FROM execution_contexts WHERE executionId=? AND huVersion=?`)
+      .get(executionId, huVersion) as Record<string, string | number | null> | undefined;
+    return row ? toExecutionContext(row) : null;
+  }
+
+  /** Contextos congelados de una ejecución, por versión de la HU. */
+  listExecutionContexts(executionId: string): ExecutionContextRecord[] {
+    const rows = this.db
+      .prepare(`SELECT * FROM execution_contexts WHERE executionId=? ORDER BY huVersion ASC`)
+      .all(executionId) as Array<Record<string, string | number | null>>;
+    return rows.map(toExecutionContext);
+  }
+
   private insertProjectHistory(h: ProjectHistoryRecord): void {
     this.db
       .prepare(`INSERT INTO project_history (id, projectId, action, actor, at, details) VALUES (?, ?, ?, ?, ?, ?)`)
       .run(h.id, h.projectId, h.action, h.actor, h.at, JSON.stringify(h.details));
   }
+}
+
+function toExecutionContext(row: Record<string, string | number | null>): ExecutionContextRecord {
+  return {
+    executionId: String(row.executionId),
+    huVersion: Number(row.huVersion),
+    sessionId: row.sessionId === null ? null : String(row.sessionId),
+    projectId: String(row.projectId),
+    snapshotId: row.snapshotId === null ? null : String(row.snapshotId),
+    indexHash: row.indexHash === null ? null : String(row.indexHash),
+    hu: JSON.parse(String(row.hu)) as AnalyzedHu,
+    builtAt: String(row.builtAt),
+    stale: Number(row.stale) === 1,
+    staleReason: row.staleReason === null ? null : String(row.staleReason),
+    sources: JSON.parse(String(row.sources)) as ContextSourceRef[],
+    files: JSON.parse(String(row.files)) as SelectedFile[],
+    trace: JSON.parse(String(row.trace)) as ContextTrace,
+    bundleHash: String(row.bundleHash),
+    bundle: String(row.bundle),
+    devBundleHash: String(row.devBundleHash),
+    devBundle: String(row.devBundle),
+  };
 }
 
 function toProject(row: Record<string, string | null>): ProjectRecord {

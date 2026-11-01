@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { EventBus } from "./event-bus.js";
-import { EventStore } from "./event-store.js";
+import { EventStore, projectStreamKey } from "./event-store.js";
 import type { SaikiEvent, NewEvent } from "./event-types.js";
 
 function ev(executionId: string | undefined, type: SaikiEvent["type"], extra: Partial<NewEvent> = {}): NewEvent {
@@ -76,6 +76,22 @@ describe("Fase 20: EventStore (seq + reconexión)", () => {
     // Conserva los MÁS RECIENTES (seq 4,5,6).
     expect(all.map((x) => x.seq)).toEqual([4, 5, 6]);
     expect(store.earliestSeq("e")).toBe(4);
+    store.close();
+  });
+});
+
+describe("(T6) stream de contexto por proyecto", () => {
+  it("seq propio por proyecto, separado de las ejecuciones; se lee con projectId y sin executionId", () => {
+    const store = new EventStore(":memory:");
+    const ev = (over: Partial<SaikiEvent>) =>
+      ({ eventId: Math.random().toString(36), type: "context.scan.queued", timestamp: new Date().toISOString(), data: { scanId: "s", mode: "full", trigger: "manual" }, ...over }) as SaikiEvent;
+    store.append(ev({ type: "execution.started", executionId: "dev-1", data: { phase: "x", status: "y" } } as never));
+    expect(store.append(ev({ projectId: "prj-a" })).seq).toBe(1);
+    expect(store.append(ev({ projectId: "prj-a" })).seq).toBe(2);
+    expect(store.append(ev({ projectId: "prj-b" })).seq).toBe(1);
+    const a = store.getAll(projectStreamKey("prj-a"));
+    expect(a.map((e) => [e.projectId, e.executionId, e.seq])).toEqual([["prj-a", undefined, 1], ["prj-a", undefined, 2]]);
+    expect(store.getAll("dev-1").map((e) => [e.executionId, e.projectId])).toEqual([["dev-1", undefined]]);
     store.close();
   });
 });

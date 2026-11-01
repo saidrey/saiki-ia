@@ -110,6 +110,21 @@ export interface ExecutionView {
   project?: ExecutionProjectView | null;
   /** (Project Registry) Directorio donde se aplicó (repo real o sandbox de esta ejecución), si ya se aplicó. */
   applyTarget?: string | null;
+  /** (Project Context, T8) Contexto congelado (última versión de la HU). null = sin contexto congelado. */
+  context?: ExecutionContextView | null;
+}
+
+/** (Project Context, T8) Qué contexto recibió la ejecución y de dónde salió (sin el texto ni hashes internos). */
+export interface ExecutionContextView {
+  huVersion: number;
+  snapshotId: string | null;
+  builtAt: string;
+  stale: boolean;
+  staleReason: string | null;
+  sources: Array<{ kind: string; ref: string; version?: number; title?: string; included?: string }>;
+  files: Array<{ path: string; score: number; reasons: string[] }>;
+  /** false si el texto congelado no coincide con su hash. */
+  intact: boolean;
 }
 
 /** (Project Registry) Proyecto de una ejecución. */

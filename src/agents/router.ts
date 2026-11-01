@@ -33,6 +33,8 @@ export interface RoleAdapterMap {
   qualityReviewer?: AgentAdapter;
   /** (Fase 14) Rol auxiliar genérico. Opcional: solo si se usa delegación. */
   assistant?: AgentAdapter;
+  /** (T11) Analista de proyecto. Opcional: solo si se usa el Project Analyst. */
+  projectAnalyst?: AgentAdapter;
 }
 
 /**
@@ -103,5 +105,7 @@ export function createDefaultRouter(overrides?: Partial<RoleAdapterMap>): AgentR
     // (Fase 12) revisores: Kiro CLI con SOLO LECTURA. Independientes entre si.
     functionalReviewer: overrides?.functionalReviewer ?? new KiroCliAdapter({ trustTools: "fs_read" }),
     qualityReviewer: overrides?.qualityReviewer ?? new KiroCliAdapter({ trustTools: "fs_read" }),
+    // (T11) Project Analyst: Kiro CLI con SOLO LECTURA, como el analista técnico.
+    projectAnalyst: overrides?.projectAnalyst ?? new KiroCliAdapter({ trustTools: "fs_read" }),
   });
 }

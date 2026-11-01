@@ -47,7 +47,18 @@ export interface KnowledgeDoc {
   updatedAt: string;
   /** Id del documento que reemplazó a este (cuando status=superseded). */
   supersededBy?: string;
+  /** (T10) Proyecto del documento; null = conocimiento global. */
+  projectId: string | null;
+  /** (T10) Documento lógico al que pertenece esta versión (= id de su versión 1). */
+  documentId: string;
+  /** (T10) Número de versión dentro del documento (1, 2, …). */
+  version: number;
+  /** (T10) Versión aprobada de la que deriva esta propuesta; null en la versión 1. */
+  basedOn: string | null;
 }
+
+/** (T10) Categorías del conocimiento por proyecto (§5 de la propuesta). */
+export const PROJECT_KNOWLEDGE_CATEGORIES: readonly KnowledgeCategory[] = ["architecture", "conventions", "decisions"];
 
 /** Relación entre dos documentos. */
 export interface KnowledgeRelation {
@@ -72,6 +83,8 @@ export interface CreateDocInput {
   category: KnowledgeCategory;
   content: string;
   origin: string;
+  /** (T10) Proyecto; omitido o null = global. */
+  projectId?: string | null;
 }
 
 /** Filtro de búsqueda por texto y/o metadatos. */
@@ -81,4 +94,6 @@ export interface KnowledgeQuery {
   category?: KnowledgeCategory;
   status?: KnowledgeStatus;
   limit?: number;
+  /** (T10) Ámbito: sin definir = solo global; un id = solo ese proyecto. Nunca se mezclan. */
+  projectId?: string;
 }

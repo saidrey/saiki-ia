@@ -1,6 +1,8 @@
 import type { AgentAdapter, AgentRequest, AgentResult } from "./types.js";
 import {
+  resolveTimeoutEnv,
   spawnProcessRunner,
+  type TimeoutResolution,
   type ProcessRunner,
   type ProcessResult,
   workingDirectoryOf,
@@ -21,21 +23,59 @@ export interface ClaudeCliOptions {
 }
 
 const DEFAULT_TIMEOUT_MS = 120_000; // Claude puede tardar mas que analyze.
+
+/** Variable de entorno con el timeout de cada llamada a Claude Code (ms). */
+export const CLAUDE_TIMEOUT_ENV = "SAIKI_CLAUDE_TIMEOUT_MS";
+export const DEFAULT_CLAUDE_TIMEOUT_MS = DEFAULT_TIMEOUT_MS;
+
+/** Timeout de Claude desde el entorno; mismo criterio que `SAIKI_KIRO_TIMEOUT_MS`. Por defecto 120 000 ms. */
+export function resolveClaudeTimeoutMs(env: Record<string, string | undefined> = process.env): TimeoutResolution {
+  return resolveTimeoutEnv(env, CLAUDE_TIMEOUT_ENV, DEFAULT_TIMEOUT_MS);
+}
 const DEFAULT_MAX_OUTPUT_BYTES = 1024 * 1024; // 1 MiB
+
+/** Herramientas de solo lectura que Claude puede usar (las únicas de la sesión). */
+export const CLAUDE_READ_TOOLS = ["Read", "Glob", "Grep"] as const;
+
+/** Flags de Claude Code: solo lectura dentro del directorio de trabajo (ver SEGURIDAD). */
+const CLAUDE_READ_ONLY_ARGS = [
+  "-p",
+  "--tools",
+  CLAUDE_READ_TOOLS.join(","), // únicas herramientas built-in de la sesión
+  "--allowedTools",
+  ...CLAUDE_READ_TOOLS, // sin pedir permiso
+  "--permission-mode",
+  "dontAsk", // lo no permitido se deniega sin preguntar
+  "--restricted", // confina a cwd, sin ejecución de código ni settings externos
+  "--strict-mcp-config", // ignora MCP servers (podrian escribir)
+  "--disallowedTools",
+  "Write",
+  "Edit",
+  "NotebookEdit",
+  "Bash",
+  "WebFetch",
+  "WebSearch", // denegacion explicita (defensa en profundidad)
+];
 
 /**
  * Adaptador que conecta el rol `develop` con **Claude Code real** en modo
  * PROPUESTA (genera codigo como texto, NUNCA aplica cambios al repositorio).
  *
- * SEGURIDAD (verificado contra `claude --help`, v2.1.251):
+ * SEGURIDAD (verificado contra `claude --help` y empíricamente, v2.1.251):
  *  - `-p` (--print): modo no interactivo.
- *  - `--tools ""`: desactiva TODAS las herramientas built-in (Bash/Write/Edit/
- *    Read/REPL...). Claude solo puede generar texto. Verificado empiricamente:
- *    al pedirle crear/modificar archivos, el repo quedo INTACTO.
- *  - Refuerzo (defensa en profundidad, no confiar solo en el prompt):
- *    `--restricted` (quita herramientas de ejecucion de codigo),
- *    `--disallowedTools Write Edit Bash` (deniega escritura/ejecucion explicita),
- *    `--strict-mcp-config` (ignora servidores MCP que podrian escribir).
+ *  - `--tools Read,Glob,Grep`: las ÚNICAS herramientas built-in disponibles son
+ *    de lectura; no existen Write/Edit/Bash en la sesión. Así Claude consulta el
+ *    contenido real antes de proponer (E2E: sin lectura proponía fragmentos).
+ *  - `--allowedTools Read Glob Grep` + `--permission-mode dontAsk`: esas tres no
+ *    piden permiso; cualquier otra se deniega sin preguntar.
+ *  - `--restricted`: confina las herramientas de archivos al directorio de
+ *    trabajo (el repositorio de la ejecución), ignora settings de usuario y de
+ *    proyecto y quita las herramientas que ejecutan código.
+ *  - Refuerzo (defensa en profundidad): `--disallowedTools` de escritura,
+ *    ejecución y red, y `--strict-mcp-config` (ignora servidores MCP).
+ *  Verificado: lee archivos del proyecto, no puede crear ni editar archivos, no
+ *  ejecuta comandos y no lee fuera del directorio de trabajo. Escribir sigue
+ *  siendo exclusivo del aplicador seguro.
  *
  * La salida se devuelve como PROPUESTA de codigo. Marcar esa salida como "no
  * aplicada" es responsabilidad del nodo `develop` (ver nodes.ts).
@@ -70,17 +110,7 @@ export class ClaudeCliAdapter implements AgentAdapter {
     // known tool"). Pasarlo por stdin elimina esa ambiguedad.
     const proc = await this.runner({
       command: this.command,
-      args: [
-        "-p",
-        "--tools",
-        "", // sin herramientas built-in: no puede leer/escribir/ejecutar
-        "--restricted", // quita herramientas de ejecucion de codigo
-        "--strict-mcp-config", // ignora MCP servers (podrian escribir)
-        "--disallowedTools",
-        "Write",
-        "Edit",
-        "Bash", // denegacion explicita (defensa en profundidad)
-      ],
+      args: CLAUDE_READ_ONLY_ARGS,
       stdin: prompt,
       timeoutMs: this.timeoutMs,
       maxOutputBytes: this.maxOutputBytes,

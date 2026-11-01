@@ -1,4 +1,5 @@
 import type { AgentRouter } from "../agents/router.js";
+import { extractAgentJson } from "../agents/agent-json.js";
 import { buildHuPrompt, buildHuRevisionPrompt } from "./hu-instructions.js";
 import { validateHu, type AnalyzedHu } from "./hu-schema.js";
 
@@ -16,19 +17,6 @@ export type HuAnalysisResult =
   | { ok: true; hu: AnalyzedHu }
   | { ok: false; error: string };
 
-/** Extrae el primer objeto JSON de un texto (tolera ```json o texto extra). */
-function extractJson(text: string): unknown {
-  const trimmed = text.trim();
-  // Quita cercas de codigo si las hubiera.
-  const withoutFences = trimmed.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
-  const start = withoutFences.indexOf("{");
-  const end = withoutFences.lastIndexOf("}");
-  if (start === -1 || end === -1 || end <= start) {
-    throw new Error("la respuesta no contiene un objeto JSON");
-  }
-  return JSON.parse(withoutFences.slice(start, end + 1));
-}
-
 async function runAndValidate(
   router: AgentRouter,
   prompt: string,
@@ -43,16 +31,11 @@ async function runAndValidate(
   }
 
   // Parseo del JSON de la respuesta.
-  let candidate: unknown;
-  try {
-    candidate = extractJson(result.output);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return { ok: false, error: `Respuesta de HU no parseable: ${msg}` };
-  }
+  const parsed = extractAgentJson(result.output, (c) => validateHu(c).ok);
+  if (!parsed.ok) return { ok: false, error: `Respuesta de HU no parseable: ${parsed.error}` };
 
   // Validacion contra el esquema. Un invalido NO se acepta.
-  const validation = validateHu(candidate);
+  const validation = validateHu(parsed.value);
   if (!validation.ok) {
     return { ok: false, error: `HU invalida: ${validation.errors.join("; ")}` };
   }

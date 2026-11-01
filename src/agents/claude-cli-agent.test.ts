@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { ClaudeCliAdapter } from "./claude-cli-agent.js";
+import { CLAUDE_READ_TOOLS, CLAUDE_TIMEOUT_ENV, ClaudeCliAdapter, DEFAULT_CLAUDE_TIMEOUT_MS, resolveClaudeTimeoutMs } from "./claude-cli-agent.js";
+import { spawnProcessRunner } from "./process-runner.js";
 import type { ProcessResult, ProcessRunner } from "./process-runner.js";
 
 /**
@@ -84,7 +85,7 @@ describe("Fase 5: ClaudeCliAdapter (mapeo determinista)", () => {
     expect(result.error).toContain("no devolvio salida");
   });
 
-  it("SEGURIDAD: pasa flags que impiden escritura/ejecucion y el prompt por stdin", async () => {
+  it("SEGURIDAD: solo lectura (Read/Glob/Grep), sin escritura/ejecucion, y el prompt por stdin", async () => {
     let capturedArgs: string[] = [];
     let capturedStdin: string | undefined;
     const spyRunner: ProcessRunner = async (req) => {
@@ -104,17 +105,26 @@ describe("Fase 5: ClaudeCliAdapter (mapeo determinista)", () => {
 
     // Modo no interactivo.
     expect(capturedArgs).toContain("-p");
-    // Sin herramientas built-in: tras "--tools" viene "" (cadena vacia).
-    const toolsIdx = capturedArgs.indexOf("--tools");
-    expect(toolsIdx).toBeGreaterThanOrEqual(0);
-    expect(capturedArgs[toolsIdx + 1]).toBe("");
-    // Defensa en profundidad.
+    // Solo lectura: las únicas herramientas built-in de la sesión son Read, Glob y Grep.
+    const valueOf = (flag: string) => capturedArgs[capturedArgs.indexOf(flag) + 1];
+    expect(valueOf("--tools")).toBe("Read,Glob,Grep");
+    expect(valueOf("--tools").split(",")).toEqual([...CLAUDE_READ_TOOLS]);
+    // Pre-aprobadas solo las de lectura; el resto se deniega sin preguntar.
+    const allowed = capturedArgs.slice(capturedArgs.indexOf("--allowedTools") + 1, capturedArgs.indexOf("--permission-mode"));
+    expect(allowed).toEqual(["Read", "Glob", "Grep"]);
+    expect(valueOf("--permission-mode")).toBe("dontAsk");
+    // Confinado al directorio de trabajo y sin MCP.
     expect(capturedArgs).toContain("--restricted");
     expect(capturedArgs).toContain("--strict-mcp-config");
-    expect(capturedArgs).toContain("--disallowedTools");
-    expect(capturedArgs).toContain("Write");
-    expect(capturedArgs).toContain("Edit");
-    expect(capturedArgs).toContain("Bash");
+    // Defensa en profundidad: escritura, ejecución y red denegadas explícitamente.
+    const denied = capturedArgs.slice(capturedArgs.indexOf("--disallowedTools") + 1);
+    expect(denied).toEqual(expect.arrayContaining(["Write", "Edit", "NotebookEdit", "Bash", "WebFetch", "WebSearch"]));
+    // Ninguna herramienta de escritura o ejecución aparece como disponible ni permitida.
+    for (const t of ["Write", "Edit", "NotebookEdit", "Bash", "WebFetch", "WebSearch"]) {
+      expect(valueOf("--tools").split(",")).not.toContain(t);
+      expect(allowed).not.toContain(t);
+    }
+    expect(capturedArgs).not.toContain("--dangerously-skip-permissions");
     // CLAVE: el prompt va por STDIN, no como argumento posicional (evita que
     // --disallowedTools variadico se coma las palabras del prompt).
     expect(capturedStdin).toBeDefined();
@@ -122,5 +132,49 @@ describe("Fase 5: ClaudeCliAdapter (mapeo determinista)", () => {
     expect(capturedStdin).toContain("plan X");
     // El prompt NO debe estar en los args.
     expect(capturedArgs.some((a) => a.includes("plan X"))).toBe(false);
+  });
+});
+
+describe("SAIKI_CLAUDE_TIMEOUT_MS", () => {
+  it("sin definir o vacía: 120 000 ms predeterminados", () => {
+    expect(resolveClaudeTimeoutMs({})).toEqual({ ok: true, timeoutMs: 120_000, source: "default" });
+    expect(resolveClaudeTimeoutMs({ [CLAUDE_TIMEOUT_ENV]: "" })).toEqual({ ok: true, timeoutMs: 120_000, source: "default" });
+    expect(resolveClaudeTimeoutMs({ [CLAUDE_TIMEOUT_ENV]: "   " })).toMatchObject({ ok: true, source: "default" });
+    expect(DEFAULT_CLAUDE_TIMEOUT_MS).toBe(120_000);
+  });
+
+  it("valor personalizado válido (mismo máximo que Kiro)", () => {
+    expect(resolveClaudeTimeoutMs({ [CLAUDE_TIMEOUT_ENV]: "600000" })).toEqual({ ok: true, timeoutMs: 600_000, source: "env" });
+    expect(resolveClaudeTimeoutMs({ [CLAUDE_TIMEOUT_ENV]: "2147483647" })).toMatchObject({ ok: true, timeoutMs: 2_147_483_647 });
+  });
+
+  it("valores inválidos: error explícito que nombra la variable", () => {
+    for (const v of ["abc", "0", "-1", "1.5", "1e5", "120s", "2147483648"]) {
+      const r = resolveClaudeTimeoutMs({ [CLAUDE_TIMEOUT_ENV]: v });
+      expect(r.ok, v).toBe(false);
+      if (!r.ok) expect(r.message).toContain(CLAUDE_TIMEOUT_ENV);
+    }
+  });
+
+  it("sin configuración el adaptador mantiene 120 s; con ella pasa el valor al proceso", async () => {
+    const seen: number[] = [];
+    const runner: ProcessRunner = async (req) => {
+      seen.push(req.timeoutMs);
+      return { stdout: "ok", stderr: "", exitCode: 0, timedOut: false, truncated: false };
+    };
+    await new ClaudeCliAdapter({ runner }).run({ role: "develop", input: "x" });
+    const r = resolveClaudeTimeoutMs({ [CLAUDE_TIMEOUT_ENV]: "600000" });
+    if (!r.ok) throw new Error(r.message);
+    await new ClaudeCliAdapter({ runner, timeoutMs: r.timeoutMs }).run({ role: "develop", input: "x" });
+    expect(seen).toEqual([120_000, 600_000]);
+  });
+
+  it("expiración real: el proceso se corta y el error informa el timeout configurado", async () => {
+    // Proceso real que tarda más que el timeout (sin llamar a Claude).
+    const sleeper: ProcessRunner = (req) => spawnProcessRunner({ ...req, command: process.execPath, args: ["-e", "setTimeout(() => {}, 5000)"] });
+    const started = Date.now();
+    const result = await new ClaudeCliAdapter({ runner: sleeper, timeoutMs: 300 }).run({ role: "develop", input: "x" });
+    expect(result).toMatchObject({ status: "failure", error: "Claude Code excedio el timeout de 300 ms." });
+    expect(Date.now() - started).toBeLessThan(4000);
   });
 });

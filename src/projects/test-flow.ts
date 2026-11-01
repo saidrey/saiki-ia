@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import type { AddressInfo } from "node:net";
 import { createApiServer, type ApiServerHandle } from "../api/http-server.js";
-import { SaikiCore } from "../core/saiki-core.js";
+import { SaikiCore, type SaikiCoreOptions } from "../core/saiki-core.js";
 import { CoreStore } from "../core/core-store.js";
 import { KnowledgeStore } from "../knowledge/kb-store.js";
 import { createMemoryCheckpointer, createSqliteCheckpointer } from "../persistence/checkpointer.js";
@@ -9,6 +9,7 @@ import { MapAgentRouter } from "../agents/router.js";
 import { BasicModerator } from "../moderator/basic-moderator.js";
 import { EventBus } from "../events/event-bus.js";
 import { EventStore } from "../events/event-store.js";
+import { openDataStores, type DataPaths } from "../persistence/data-dir.js";
 import type { AgentAdapter, AgentRequest, AgentResult } from "../agents/types.js";
 
 /**
@@ -29,7 +30,7 @@ export interface AgentCall {
 export type DevFile = { path: string; content: string };
 
 /** Por marca: archivo existente que cita el análisis técnico y archivo que se propone crear. */
-export type FlowPlan = (marker: string) => { affected: string; create: DevFile };
+export type FlowPlan = (marker: string) => { affected: string; create: DevFile; /** Resumen de la HU (contexto, T8). */ hu?: string };
 
 const DEFAULT_PLAN: FlowPlan = () => ({ affected: "README.md", create: { path: "src/gen.ts", content: "export const v = 1;\n" } });
 
@@ -41,6 +42,8 @@ export class FlowAgent implements AgentAdapter {
   readonly name = "flow-agent";
   readonly calls: AgentCall[] = [];
   private readonly holds = new Map<string, { started: () => void; release: Promise<void> }>();
+  /** (T11) Respuesta del rol `projectAnalyst`: texto o resultado completo (fallos, timeouts). */
+  projectAnalysis: string | AgentResult = JSON.stringify({ documents: [] });
 
   constructor(private readonly plan: FlowPlan = DEFAULT_PLAN) {}
 
@@ -73,7 +76,7 @@ export class FlowAgent implements AgentAdapter {
       case "huAnalyst":
         return ok(
           JSON.stringify({
-            summary: `HU [P:${marker}]`, need: "util",
+            summary: `${plan.hu ?? "HU"} [P:${marker}]`, need: "util",
             tasks: [{ order: 1, description: "crear util" }],
             acceptanceCriteria: [{ id: "AC1", description: "funciona" }],
             assumptions: [], openQuestions: [], dependencies: [],
@@ -103,6 +106,8 @@ export class FlowAgent implements AgentAdapter {
         return ok(JSON.stringify({ decision: "approved", evaluatedCriteria: ["AC1"], metCriteria: ["AC1"], unmetCriteria: [], findings: [], requiredChanges: [], openQuestions: [], summary: "ok" }));
       case "qualityReviewer":
         return ok(JSON.stringify({ decision: "approved", categories: [{ category: "clean-code", assessment: "ok" }], findings: [], requiredChanges: [], acceptedRisks: [], summary: "ok" }));
+      case "projectAnalyst":
+        return typeof this.projectAnalysis === "string" ? ok(this.projectAnalysis) : this.projectAnalysis;
       default:
         return ok("resultado de asistencia");
     }
@@ -116,23 +121,48 @@ export interface TestServer {
   stop: () => Promise<void>;
 }
 
-/** Servidor real. Con `persist`, SQLite en `dir` (sobrevive a reiniciar con otro `startTestServer`). */
-export async function startTestServer(opts: { dir: string; agent: FlowAgent; persist?: boolean; sandboxDir?: string }): Promise<TestServer> {
-  const { dir, agent, persist = false, sandboxDir } = opts;
+/**
+ * Servidor real. Con `persist`, SQLite en `dir` (sobrevive a reiniciar con otro `startTestServer`).
+ * Con `data`, las bases de datos se abren como en `serve.ts` (directorio de datos resuelto).
+ */
+export async function startTestServer(opts: {
+  dir: string;
+  agent: FlowAgent;
+  persist?: boolean;
+  sandboxDir?: string;
+  data?: DataPaths;
+  contextScan?: SaikiCoreOptions["contextScan"];
+  contextRefreshMs?: number;
+  /** Con `data`, abre las bases de datos pero sin contexto (Core anterior a Project Context). */
+  withoutContext?: boolean;
+}): Promise<TestServer> {
+  const { dir, agent, persist = false, sandboxDir, data, contextScan, contextRefreshMs, withoutContext } = opts;
   const router = new MapAgentRouter(
-    { analyze: agent, develop: agent, review: agent, huAnalyst: agent, technicalAnalyst: agent, functionalReviewer: agent, qualityReviewer: agent, assistant: agent },
+    { analyze: agent, develop: agent, review: agent, huAnalyst: agent, technicalAnalyst: agent, functionalReviewer: agent, qualityReviewer: agent, assistant: agent, projectAnalyst: agent },
     { opencode: agent },
   );
-  const eventStore = new EventStore(persist ? join(dir, "events.sqlite") : ":memory:");
+  const stores = data
+    ? openDataStores(data)
+    : {
+        eventStore: new EventStore(persist ? join(dir, "events.sqlite") : ":memory:"),
+        checkpointer: persist ? createSqliteCheckpointer(join(dir, "checkpoints.sqlite")) : createMemoryCheckpointer(),
+        coreStore: new CoreStore(persist ? join(dir, "core.sqlite") : ":memory:"),
+        knowledge: new KnowledgeStore(":memory:"),
+        contextStore: undefined,
+      };
+  const { eventStore } = stores;
   const core = new SaikiCore({
     router,
-    graphOptions: { checkpointer: persist ? createSqliteCheckpointer(join(dir, "checkpoints.sqlite")) : createMemoryCheckpointer() },
-    coreStore: new CoreStore(persist ? join(dir, "core.sqlite") : ":memory:"),
-    knowledge: new KnowledgeStore(":memory:"),
+    graphOptions: { checkpointer: stores.checkpointer },
+    coreStore: stores.coreStore,
+    knowledge: stores.knowledge,
     moderator: new BasicModerator(),
     eventBus: new EventBus(),
     eventStore,
-    dataDir: join(dir, ".saiki"),
+    dataDir: data ? data.dir : join(dir, ".saiki"),
+    contextStore: withoutContext ? undefined : stores.contextStore,
+    contextScan,
+    contextRefreshMs,
     sandboxDir,
   });
   const handle = createApiServer({ core, humanActor: "said", port: 0, eventStore });
@@ -153,6 +183,7 @@ export async function startTestServer(opts: { dir: string; agent: FlowAgent; per
     stop: async () => {
       await handle.close();
       core.close();
+      if (withoutContext) stores.contextStore?.close();
     },
   };
 }

@@ -10,7 +10,8 @@ aplicación queda incompleta.
   verificado compatible con `@langchain/langgraph@1.5.3`.
 - `src/persistence/checkpointer.ts` → `createSqliteCheckpointer(dbPath)`.
 - Ubicación por defecto: `.saiki/checkpoints.sqlite` (configurable). Excluida de
-  git (`.gitignore`: `.saiki/`, `*.sqlite*`).
+  git (`.gitignore`: `.saiki/`, `*.sqlite*`). El backend resuelve el directorio
+  con `SAIKI_DATA_DIR` (`src/persistence/data-dir.ts`; ver `docs/API.md` §1.1).
 - `buildGraph()` usa SQLite persistente por defecto; los tests inyectan memoria
   o un SQLite en directorio temporal.
 - Compatible con `interrupt()`, `Command({ resume })` y el mismo `thread_id`
@@ -67,6 +68,22 @@ No se ejecutan comandos generados por los agentes para aplicar ni restaurar.
 
 Si se intenta reanudar un `thread_id` inexistente, `getState` devuelve un estado
 vacío (sin propuesta) y el grafo no reanuda nada (no inventa una aprobación).
+
+## 6. Contexto congelado por ejecución (Project Context, T8)
+
+Antes del análisis técnico, cada ejecución congela en `core.sqlite`
+(`execution_contexts`, solo inserción con *triggers*) el contexto que recibe:
+HU usada, proyecto, sesión, `snapshotId`, `indexHash`, fuentes, archivos
+seleccionados con su puntuación, fecha, indicador y motivo de desactualización,
+y el texto exacto de los dos bundles (analista técnico y desarrollador) con su
+sha256. El checkpoint solo guarda `contextSnapshotId` (*keep-first*).
+
+- Al reanudar o reintentar, se reutiliza el contexto congelado; nunca se
+  reconstruye con el índice actual (que solo conserva el último snapshot).
+- Si una ejecución no tiene contexto congelado (anterior a T8), se informa como
+  `not_frozen` y los prompts siguen como antes.
+- Espera máxima a un escaneo: `SAIKI_CONTEXT_REFRESH_MS` (30 s); si no termina,
+  se usa el último snapshot marcado como desactualizado.
 
 ## Pruebas (51 en total, deterministas, dir temporal, sin SSO)
 

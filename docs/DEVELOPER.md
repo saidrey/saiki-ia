@@ -47,8 +47,10 @@ como lista para aplicar).
 
 ## Seguridad: Claude no escribe (verificado empíricamente)
 
-- Reutiliza `ClaudeCliAdapter` con `--tools ""`, `--restricted`,
-  `--disallowedTools Write Edit Bash`, `--strict-mcp-config` (Fase 5). `rawPrompt`
+- Reutiliza `ClaudeCliAdapter` en **solo lectura** (desde la validación E2E de
+  Project Context): `-p --tools Read,Glob,Grep --allowedTools Read Glob Grep --permission-mode dontAsk --restricted --strict-mcp-config --disallowedTools Write Edit NotebookEdit Bash WebFetch WebSearch`.
+  Claude lee los archivos del proyecto (confinado al directorio de trabajo) antes
+  de proponer; no puede escribir, ejecutar comandos ni usar la red. `rawPrompt`
   solo cambia el prompt (JSON), no debilita permisos.
 - La huella del repo se verifica antes/después: **INTACTA**. Confirmado en la
   integración real (ver abajo).

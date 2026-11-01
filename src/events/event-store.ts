@@ -19,6 +19,18 @@ import type { SaikiEvent, NewEvent } from "./event-types.js";
 export const DEFAULT_EVENTS_PATH = ".saiki/events.sqlite";
 const DEFAULT_MAX_PER_EXECUTION = 1000;
 
+/**
+ * (T6) Los eventos de contexto se guardan en un stream por proyecto, con su
+ * propio `seq`. Comparten tabla con las ejecuciones; la clave lleva un prefijo
+ * que ningún id de ejecución usa.
+ */
+const PROJECT_STREAM = "project:";
+
+/** Clave del stream de eventos de contexto de un proyecto (para `getSince`/`earliestSeq`). */
+export function projectStreamKey(projectId: string): string {
+  return `${PROJECT_STREAM}${projectId}`;
+}
+
 export class EventStore {
   private readonly db: Database.Database;
   private readonly maxPerExecution: number;
@@ -56,9 +68,10 @@ export class EventStore {
    * Persiste un evento asignándole el siguiente `seq` de su ejecución. Devuelve
    * el evento ya con `seq`. Eventos sin `executionId` no se persisten (no son
    * reconectables por ejecución) y se devuelven tal cual con seq=0.
+   * (T6) Un evento con `projectId` y sin ejecución va al stream del proyecto.
    */
   append(event: NewEvent): SaikiEvent {
-    const executionId = event.executionId;
+    const executionId = event.executionId ?? (event.projectId !== undefined ? projectStreamKey(event.projectId) : undefined);
     if (executionId === undefined) {
       return { ...event, seq: 0 } as SaikiEvent;
     }
@@ -137,10 +150,11 @@ interface EventRow {
 }
 
 function toEvent(row: EventRow): SaikiEvent {
+  const project = row.executionId.startsWith(PROJECT_STREAM) ? row.executionId.slice(PROJECT_STREAM.length) : undefined;
   return {
     eventId: row.eventId,
     type: row.type as SaikiEvent["type"],
-    executionId: row.executionId,
+    ...(project !== undefined ? { projectId: project } : { executionId: row.executionId }),
     sessionId: row.sessionId ?? undefined,
     timestamp: row.timestamp,
     seq: row.seq,

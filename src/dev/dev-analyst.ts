@@ -1,4 +1,5 @@
 import type { AgentRouter } from "../agents/router.js";
+import { extractAgentJson } from "../agents/agent-json.js";
 import { buildDevPrompt } from "./dev-instructions.js";
 import {
   validateDevProposal,
@@ -25,16 +26,6 @@ export type DevResult =
     }
   | { ok: false; error: string };
 
-function extractJson(text: string): unknown {
-  const trimmed = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
-  const start = trimmed.indexOf("{");
-  const end = trimmed.lastIndexOf("}");
-  if (start === -1 || end === -1 || end <= start) {
-    throw new Error("la respuesta no contiene un objeto JSON");
-  }
-  return JSON.parse(trimmed.slice(start, end + 1));
-}
-
 export async function developProposal(
   router: AgentRouter,
   ctx: DevContext,
@@ -47,15 +38,10 @@ export async function developProposal(
     return { ok: false, error: `El desarrollador (Claude) falló: ${result.error ?? "error desconocido"}` };
   }
 
-  let candidate: unknown;
-  try {
-    candidate = extractJson(result.output);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return { ok: false, error: `Propuesta de desarrollo no parseable: ${msg}` };
-  }
+  const parsed = extractAgentJson(result.output, (c) => validateDevProposal(c, rootDir).ok);
+  if (!parsed.ok) return { ok: false, error: `Propuesta de desarrollo no parseable: ${parsed.error}` };
 
-  const validation = validateDevProposal(candidate, rootDir);
+  const validation = validateDevProposal(parsed.value, rootDir);
   if (!validation.ok) {
     return { ok: false, error: `Propuesta de desarrollo inválida: ${validation.errors.join("; ")}` };
   }

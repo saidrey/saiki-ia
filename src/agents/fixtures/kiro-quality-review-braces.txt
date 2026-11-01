@@ -1,0 +1,32 @@
+Voy a revisar la propuesta comparándola con el código actual para evaluar regresiones y coherencia.
+
+Verifiqué el código actual contra la propuesta. La propuesta modifica exactamente los cuatro métodos descritos, preserva todo lo demás, y es coherente con los bindings y getters existentes. Noto un detalle preexistente: `apply()` contiene un `console.log(payload)` que la propuesta mantiene (no lo introduce), y el payload emite `{ bookmakers, sports }` (no `selectedBookmakers/selectedSports` como dice el análisis técnico), pero eso queda fuera del alcance de la HU.
+
+{
+  "decision": "approved",
+  "categories": [
+    { "category": "Clean Code", "assessment": "Los cuatro métodos quedan expresivos y simétricos: selectAll* usa add sobre los visibles y clearAll* usa delete sobre los visibles. La intención es legible sin comentarios. Se mantiene el estilo de arrow functions con forEach ya presente en toggleBookmaker/ngOnInit." },
+    { "category": "SOLID", "assessment": "SRP respetado: FilterComponent sigue siendo el único responsable de la selección y la propuesta no añade nuevas responsabilidades. No se fuerzan patrones innecesarios. La reutilización de los getters filtered* evita duplicar la lógica de filtrado (DRY), que es la decisión correcta aquí." },
+    { "category": "Cohesión/Acoplamiento", "assessment": "Alta cohesión: los métodos de botones ahora dependen de la misma fuente (getters filtered*) que alimenta la plantilla, alineando acción y vista. No se introduce acoplamiento nuevo; el cambio queda contenido en un solo archivo." },
+    { "category": "Responsabilidades", "assessment": "Sin cambios de frontera. ngOnInit, getters, toggle*, apply() y close() se dejan intactos, correctamente marcados como fuera de alcance." },
+    { "category": "Legibilidad/Mantenibilidad", "assessment": "Mejora: antes había asimetría conceptual (selectAll iteraba lista completa, clearAll hacía clear() total). Ahora ambos pares son coherentes entre sí y con la búsqueda activa, más fáciles de razonar." },
+    { "category": "Manejo de errores", "assessment": "No se degrada. Los getters ya manejan el caso de búsqueda vacía devolviendo la lista completa. forEach sobre arrays siempre definidos (bookmakers/sports inicializados en ngOnInit). No se requiere manejo adicional para el alcance de la HU." },
+    { "category": "Seguridad", "assessment": "Sin superficie nueva. No hay entrada externa no validada más allá de la búsqueda en memoria. Observación menor preexistente (no introducida por la propuesta): console.log(payload) en apply() podría filtrar datos a la consola, pero está fuera de alcance de esta HU." },
+    { "category": "Regresiones", "assessment": "Bajo riesgo. AC6 (comportamiento sin búsqueda) se preserva porque filtered* devuelve la lista completa con campo vacío. El cambio de clear() a delete por-id es el punto más sensible, pero es intencional y necesario para preservar ocultos (AC5). Ausencia de spec implica que no hay red de seguridad automatizada." },
+    { "category": "Coherencia con lenguaje/arquitectura", "assessment": "Consistente con el patrón Angular + Material Dialog del proyecto y con el uso de Set<number>. No introduce frontend/HTTP/WS/UI nuevos ni dependencias. Respeta todas las restricciones del proyecto." },
+    { "category": "Complejidad (KISS/YAGNI)", "assessment": "Mínima y proporcionada. Solo se tocan los cuatro métodos estrictamente necesarios. No se añade indicador visual, persistencia ni tests de infraestructura, todos correctamente diferidos como preguntas abiertas/riesgos en lugar de sobre-implementar." }
+  ],
+  "findings": [
+    { "id": "Q1", "severity": "low", "description": "Ausencia de pruebas unitarias (no existe filter.component.spec.ts). El cambio queda verificado solo manualmente, aumentando el riesgo de regresión no detectada en futuros cambios de los getters filtered*. No es criterio de aceptación ni estaba en alcance; aceptable como riesgo documentado." },
+    { "id": "Q2", "severity": "low", "description": "La estructura de BOOKMAKERS/SPORT_ICONS (presencia de id/name) se asume pero no se verificó directamente en la propuesta. Mitigado porque los getters existentes (no modificados) ya dependen de b.id/b.name y s.id/s.name, por lo que si el supuesto fuera falso el código actual ya fallaría." },
+    { "id": "Q3", "severity": "low", "description": "console.log(payload) preexistente en apply() permanece en el código mostrado. No lo introduce esta propuesta y está fuera del alcance de la HU, pero conviene registrarlo para una limpieza futura de higiene de código." }
+  ],
+  "requiredChanges": [],
+  "acceptedRisks": [
+    "Sin cobertura de tests automatizados para FilterComponent; verificación manual requerida (Q1).",
+    "Supuesto no verificado sobre la forma de BOOKMAKERS/SPORT_ICONS, mitigado por dependencia preexistente de los getters (Q2).",
+    "console.log preexistente en apply() permanece; fuera de alcance de esta HU (Q3).",
+    "La búsqueda por includes() trata coincidencias parciales como visibles y, por tanto, afectables por Todos/Ninguno; es el comportamiento esperado por AC1-AC4 y reutiliza el getter existente sin cambios."
+  ],
+  "summary": "La propuesta es de alta calidad técnica para el alcance de la HU: cambios mínimos, simétricos y legibles en los cuatro métodos de selección masiva, reutilizando los getters filtered* existentes para alinear acción y vista sin duplicar lógica ni introducir complejidad. Respeta KISS/YAGNI y todas las restricciones del proyecto (sin nuevas dependencias, UI ni ampliación de alcance). El único punto estructuralmente sensible (clear() → delete por-id) es intencional y correcto para preservar la selección de ocultos. Los hallazgos son todos de severidad baja y corresponden a riesgos documentados o temas preexistentes fuera de alcance; ninguno bloquea. Aprobado."
+}

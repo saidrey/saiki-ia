@@ -76,6 +76,8 @@ export class MockAgentAdapter implements AgentAdapter {
         return `Revision de calidad simulada de: "${input}".`;
       case "assistant":
         return `Asistencia simulada para: "${input}".`;
+      case "projectAnalyst":
+        return `Analisis de proyecto simulado para: "${input}".`;
       default: {
         // Exhaustividad: si se agrega un rol nuevo y se olvida aqui,
         // TypeScript marcara error en compilacion.

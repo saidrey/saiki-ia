@@ -28,6 +28,11 @@ export interface ProcessRequest {
    * backend (comportamiento anterior; solo flujos sin proyecto).
    */
   cwd?: string;
+  /**
+   * (Project Context) Entorno del proceso. Sin él, hereda el del backend. El
+   * escáner lo usa para lanzar `git` sin variables `GIT_*` heredadas.
+   */
+  env?: NodeJS.ProcessEnv;
 }
 
 /**
@@ -64,7 +69,7 @@ export type ProcessRunner = (request: ProcessRequest) => Promise<ProcessResult>;
  *   dentro del ProcessResult.
  */
 export const spawnProcessRunner: ProcessRunner = (request) => {
-  const { command, args, timeoutMs, maxOutputBytes, stdin, cwd } = request;
+  const { command, args, timeoutMs, maxOutputBytes, stdin, cwd, env } = request;
 
   return new Promise<ProcessResult>((resolve) => {
     let stdout = "";
@@ -72,7 +77,7 @@ export const spawnProcessRunner: ProcessRunner = (request) => {
     let truncated = false;
     let settled = false;
 
-    const child = spawn(command, args, { shell: false, cwd });
+    const child = spawn(command, args, { shell: false, cwd, env });
 
     // Si hay stdin, lo escribimos y cerramos el flujo para que el proceso
     // sepa que no llega mas entrada.
@@ -132,4 +137,24 @@ export const spawnProcessRunner: ProcessRunner = (request) => {
 export function workingDirectoryOf(context?: Record<string, unknown>): string | undefined {
   const dir = context?.workingDirectory;
   return typeof dir === "string" && dir.length > 0 ? dir : undefined;
+}
+
+/** Máximo que admite `setTimeout` (por encima, Node lo dispara de inmediato). */
+export const MAX_TIMEOUT_MS = 2_147_483_647;
+
+export type TimeoutResolution = { ok: true; timeoutMs: number; source: "env" | "default" } | { ok: false; message: string };
+
+/**
+ * Timeout de un agente desde la variable `name`. Sin definir o vacía: el
+ * predeterminado. Solo enteros positivos de milisegundos hasta `MAX_TIMEOUT_MS`;
+ * cualquier otro valor es un error explícito (no se cae al predeterminado).
+ */
+export function resolveTimeoutEnv(env: Record<string, string | undefined>, name: string, defaultMs: number): TimeoutResolution {
+  const raw = env[name]?.trim();
+  if (raw === undefined || raw === "") return { ok: true, timeoutMs: defaultMs, source: "default" };
+  const value = Number(raw);
+  if (!/^\d+$/.test(raw) || !Number.isSafeInteger(value) || value <= 0 || value > MAX_TIMEOUT_MS) {
+    return { ok: false, message: `${name} debe ser un entero positivo de milisegundos (máximo ${MAX_TIMEOUT_MS}); se recibió "${raw}".` };
+  }
+  return { ok: true, timeoutMs: value, source: "env" };
 }

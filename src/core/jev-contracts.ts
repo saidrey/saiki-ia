@@ -1,10 +1,15 @@
 import type { ModeratorSession } from "../moderator/moderator-types.js";
 import type { DelegatedTask } from "../moderator/delegation.js";
-import type { KnowledgeDoc, KnowledgeQuery } from "../knowledge/kb-types.js";
+import type { KnowledgeCategory, KnowledgeDoc, KnowledgeQuery } from "../knowledge/kb-types.js";
+import type { KnowledgeErrorCode } from "../knowledge/kb-store.js";
 import type { AnalyzedHu } from "../hu/hu-schema.js";
 import type { TechnicalAnalysis } from "../tech/tech-schema.js";
 import type { ProjectHistoryRecord, ProjectStatus } from "./core-store.js";
 import type { ProjectResult, ProjectView, RegisterInput, UpdateInput } from "../projects/project-registry.js";
+import type { FileQuery, ScanChangesRecord, ScanMode, ScanStats, ScanStatus, ScanTrigger } from "../context/context-store.js";
+import type { ScanTargetErrorCode } from "../context/scan-scheduler.js";
+import type { FileKind } from "../context/file-classifier.js";
+import type { ProjectSummaryV2 } from "../context/summary-shared.js";
 
 export type { ProjectView, ProjectResult } from "../projects/project-registry.js";
 
@@ -148,8 +153,8 @@ export interface JevQueryPort {
   listTasks(sessionId: string): Promise<DelegatedTask[]>;
   getFlowStatus(threadId: string): Promise<FlowStatusView | null>;
   getPendingProposal(threadId: string): Promise<ProposalView | null>;
-  searchKnowledge(query: KnowledgeQuery): Promise<KnowledgeDoc[]>;
-  getKnowledgeDoc(id: string): Promise<KnowledgeDoc | null>;
+  searchKnowledge(query: KnowledgeQuery): Promise<KnowledgeDocView[]>;
+  getKnowledgeDoc(id: string): Promise<KnowledgeDocView | null>;
 }
 
 /**
@@ -187,8 +192,164 @@ export interface JevProjectPort {
   activateProject(projectId: string, actor: string): Promise<ProjectResult>;
 }
 
+/** (Project Context) Estado del contexto de un proyecto (§10). */
+export type ProjectContextStatus = "none" | "scanning" | "ready" | "stale" | "failed";
+
+/**
+ * (T6) Escaneo tal como lo ve Jev: sin raíz absoluta, huella del repositorio ni
+ * firma de frescura (datos internos). `error` va saneado.
+ */
+export interface ContextScanView {
+  id: string;
+  projectId: string;
+  mode: ScanMode;
+  status: ScanStatus;
+  trigger: ScanTrigger;
+  /** Commit (HEAD) al empezar, si el repositorio tiene commits. */
+  gitHead: string | null;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  stats: ScanStats | null;
+  error: string | null;
+}
+
+/** (T6) Detalle de un escaneo: cambios detectados (acotados) y snapshot publicado. */
+export interface ContextScanDetailView extends ContextScanView {
+  changes: ScanChangesRecord | null;
+  snapshotId: string | null;
+}
+
+export interface ContextSnapshotView {
+  id: string;
+  scanId: string;
+  createdAt: string;
+  summary: ProjectSummaryV2;
+}
+
+/** (T6) Archivo indexado: metadatos, sin contenido ni hash. */
+export interface ContextFileView {
+  path: string;
+  kind: FileKind;
+  lang: string | null;
+  size: number;
+  mtimeMs: number;
+}
+
+export interface ProjectContextView {
+  projectId: string;
+  status: ProjectContextStatus;
+  /** Último snapshot válido (sigue vigente aunque haya un escaneo en curso o fallido). */
+  snapshot: ContextSnapshotView | null;
+  /** Escaneo `queued` o `running`. */
+  currentScan: ContextScanView | null;
+  /** Último escaneo terminado (completado, fallido o interrumpido). */
+  lastScan: ContextScanView | null;
+  /** Por qué el snapshot puede no reflejar el repositorio (solo si hay snapshot). */
+  stale: { reason: "changes_detected" | "project_unavailable"; changedPaths: number | null } | null;
+}
+
+export type ContextScanResult =
+  | { ok: true; scan: ContextScanView; /** true si se devolvió el escaneo ya activo. */ deduplicated: boolean }
+  | { ok: false; code: ScanTargetErrorCode | "scheduler_closed" | "context_disabled"; message: string };
+
+/**
+ * (Project Context) Fachada del contexto de proyectos. Solo el humano pide
+ * escaneos (vía API); los escaneos automáticos los lanza el Core. Ningún agente
+ * tiene acceso. Las consultas devuelven null si el proyecto (o el escaneo o
+ * snapshot de ESE proyecto) no existe.
+ */
+export interface JevContextPort {
+  getProjectContext(projectId: string): Promise<ProjectContextView | null>;
+  requestContextScan(projectId: string, mode?: ScanMode): Promise<ContextScanResult>;
+  listContextScans(projectId: string, limit?: number): Promise<ContextScanView[] | null>;
+  getContextScan(projectId: string, scanId: string): Promise<ContextScanDetailView | null>;
+  getContextSnapshot(projectId: string, snapshotId: string): Promise<ContextSnapshotView | null>;
+  listContextFiles(projectId: string, query?: FileQuery): Promise<{ files: ContextFileView[]; nextCursor: string | null } | null>;
+  /** (T9) Texto congelado que recibieron Kiro y Claude en una ejecución. Nunca se reconstruye. */
+  getExecutionContextBundles(executionId: string, huVersion?: number): Promise<ExecutionContextBundlesResult>;
+}
+
+/** (T9) Bundles congelados de una ejecución: el texto exacto y lo justo para identificarlos (sin hashes). */
+export interface ExecutionContextBundlesView {
+  executionId: string;
+  projectId: string;
+  huVersion: number;
+  snapshotId: string | null;
+  builtAt: string;
+  stale: boolean;
+  staleReason: string | null;
+  /** Texto entregado al analista técnico (Kiro). */
+  technicalBundle: string;
+  /** Subconjunto entregado al desarrollador (Claude). */
+  developerBundle: string;
+}
+
+export type ExecutionContextBundlesResult =
+  | { ok: true; context: ExecutionContextBundlesView }
+  | { ok: false; code: "not_found" | "not_frozen" | "integrity_failed"; message: string };
+
 /**
  * Fachada completa que el Core ofrece a Jev: consulta + acción. Jev depende
  * SOLO de esta interfaz, no de los módulos internos (agentes, runtimes, grafo).
  */
-export interface JevCorePort extends JevQueryPort, JevCommandPort, JevProjectPort {}
+/** (T10) Versión de un documento tal como la ve Jev: con el hash que se aprueba. */
+export type KnowledgeDocView = KnowledgeDoc & { versionHash: string };
+
+export type KnowledgeResult =
+  | { ok: true; document: KnowledgeDocView }
+  | { ok: false; code: KnowledgeErrorCode | "project_not_found"; message: string };
+
+/**
+ * (T10) Conocimiento por proyecto y versionado. Proponer lo puede hacer una
+ * persona (vía API) o un proceso existente; aprobar, rechazar y archivar, solo
+ * la identidad humana local. Global (projectId null) y proyecto no se mezclan.
+ */
+export interface JevKnowledgePort {
+  /** Versiones de un documento; null si no existe. */
+  getKnowledgeVersions(docId: string): Promise<KnowledgeDocView[] | null>;
+  proposeProjectKnowledge(
+    projectId: string,
+    input: { category: KnowledgeCategory; title: string; content: string },
+    actor: string,
+  ): Promise<KnowledgeResult>;
+  proposeKnowledgeVersion(docId: string, changes: { title?: string; content?: string }, actor: string): Promise<KnowledgeResult>;
+  /** Aprobar o rechazar EXACTAMENTE la versión revisada (`versionHash`). */
+  decideKnowledge(docId: string, decision: "approve" | "reject", versionHash: string, humanActor: string): Promise<KnowledgeResult>;
+  archiveKnowledge(docId: string, humanActor: string): Promise<KnowledgeResult>;
+  /** Conocimiento aprobado del proyecto en Markdown; null si el proyecto no existe. */
+  exportProjectKnowledge(projectId: string): Promise<string | null>;
+}
+
+/**
+ * (T11) Project Analyst: análisis manual del proyecto que solo PROPONE
+ * conocimiento (`proposed`). El estado del último análisis vive en memoria; las
+ * propuestas, en la KB.
+ */
+export interface ProjectAnalysisView {
+  id: string;
+  projectId: string;
+  status: "running" | "completed" | "failed";
+  snapshotId: string;
+  actor: string;
+  startedAt: string;
+  finishedAt: string | null;
+  /** Versiones creadas como `proposed`. */
+  proposed: Array<{ docId: string; documentId: string; version: number; title: string; category: string; basedOn: string | null; citedFiles: string[] }>;
+  /** Documentos omitidos (p. ej. el documento base ya tiene una propuesta pendiente). */
+  skipped: Array<{ title: string; basedOn: string | null; reason: string }>;
+  error: string | null;
+}
+
+export type ProjectAnalysisResult =
+  | { ok: true; analysis: ProjectAnalysisView }
+  | { ok: false; code: ScanTargetErrorCode | "context_disabled" | "no_snapshot" | "analysis_running" | "index_mismatch"; message: string };
+
+export interface JevProjectAnalysisPort {
+  /** Lanza el análisis (una llamada al agente) y devuelve enseguida su estado `running`. */
+  analyzeProject(projectId: string, actor: string): Promise<ProjectAnalysisResult>;
+  /** Último análisis del proyecto en este proceso; null si no hay o el proyecto no existe. */
+  getProjectAnalysis(projectId: string): Promise<ProjectAnalysisView | null>;
+}
+
+export interface JevCorePort extends JevQueryPort, JevCommandPort, JevProjectPort, JevContextPort, JevKnowledgePort, JevProjectAnalysisPort {}

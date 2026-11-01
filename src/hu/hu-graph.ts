@@ -73,6 +73,22 @@ export type ApplyGuard = (input: {
   state: HuStateType;
 }) => { ok: true; applyDir: string } | { ok: false; reason: string };
 
+/**
+ * (Project Context, T8) Contexto congelado por ejecución. Lo implementa el Core
+ * (escaneos, índice y `execution_contexts`); el grafo solo lo pide y lo pasa a
+ * los prompts. Sin él, los prompts son los de siempre.
+ */
+export interface ExecutionContextPort {
+  /** Contexto para el analista técnico: el congelado o, la primera vez, uno nuevo que queda congelado. */
+  prepare(input: {
+    executionId: string;
+    huVersion: number;
+    state: HuStateType;
+  }): Promise<{ ok: true; text: string; snapshotId: string | null } | { ok: false; error: string }>;
+  /** Subconjunto congelado para el desarrollador; null si la ejecución no tiene contexto congelado (anterior a T8). */
+  developer(input: { executionId: string; huVersion: number }): { ok: true; text: string } | { ok: false; error: string } | null;
+}
+
 /** Directorios que ninguna propuesta puede tocar, en ningún proyecto. */
 const PROTECTED_DIRS = [".git", ".saiki"];
 
@@ -165,8 +181,8 @@ function approvalGate(state: HuStateType): HuUpdate {
  * Produce un análisis estructurado y validado (rutas verificadas en disco).
  * Solo lectura; no modifica código. Fallo -> ruta de error explícita.
  */
-function makeTechnicalAnalysis(router: AgentRouter, policy: RootPolicy) {
-  return async function technicalAnalysis(state: HuStateType): Promise<HuUpdate> {
+function makeTechnicalAnalysis(router: AgentRouter, policy: RootPolicy, contextPort?: ExecutionContextPort) {
+  return async function technicalAnalysis(state: HuStateType, config?: LangGraphRunnableConfig): Promise<HuUpdate> {
     if (state.hu === null || state.phase !== "approved") {
       // Defensa: no debería llegar aquí sin HU aprobada.
       return { phase: "tech_failed", error: "No hay HU aprobada para analizar." };
@@ -174,15 +190,27 @@ function makeTechnicalAnalysis(router: AgentRouter, policy: RootPolicy) {
     const rootDir = rootOf(state, policy);
     if (rootDir === null) return { phase: "tech_failed", error: NO_PROJECT };
 
-    const result = await analyzeTechnical(router, state.hu, rootDir);
+    // (Project Context, T8) Contexto congelado antes del análisis.
+    let projectContext: string | undefined;
+    let contextSnapshotId: string | null = null;
+    if (contextPort) {
+      const executionId = String(config?.configurable?.thread_id ?? "");
+      const ctx = await contextPort.prepare({ executionId, huVersion: state.versions.length, state });
+      if (!ctx.ok) return { phase: "tech_failed", error: ctx.error };
+      projectContext = ctx.text;
+      contextSnapshotId = ctx.snapshotId;
+    }
+
+    const result = await analyzeTechnical(router, state.hu, rootDir, projectContext);
     if (!result.ok) {
-      return { phase: "tech_failed", error: result.error };
+      return { phase: "tech_failed", error: result.error, contextSnapshotId };
     }
 
     return {
       phase: "tech_analyzed",
       technicalAnalysis: result.analysis,
       unresolvedPaths: result.unresolvedPaths,
+      contextSnapshotId,
     };
   };
 }
@@ -227,8 +255,8 @@ function partialDecisionGate(state: HuStateType): HuUpdate {
  * única) y pide a Claude una propuesta. Valida y calcula el hash. Claude NO
  * escribe. Fallo/invalido -> dev_failed (sin fallback).
  */
-function makeDevelop(router: AgentRouter, policy: RootPolicy) {
-  return async function develop(state: HuStateType): Promise<HuUpdate> {
+function makeDevelop(router: AgentRouter, policy: RootPolicy, contextPort?: ExecutionContextPort) {
+  return async function develop(state: HuStateType, config?: LangGraphRunnableConfig): Promise<HuUpdate> {
     if (state.hu === null || state.technicalAnalysis === null) {
       return { phase: "dev_failed", error: "Falta HU o análisis técnico para desarrollar." };
     }
@@ -238,6 +266,13 @@ function makeDevelop(router: AgentRouter, policy: RootPolicy) {
       // Defensa: nunca desarrollar si no está habilitado.
       return { phase: "dev_failed", error: `Viabilidad no habilita desarrollo: ${state.feasibility}.` };
     }
+
+    // (Project Context, T8) Solo el subconjunto congelado que corresponde al desarrollador.
+    const frozen = contextPort?.developer({
+      executionId: String(config?.configurable?.thread_id ?? ""),
+      huVersion: state.versions.length,
+    });
+    if (frozen && !frozen.ok) return { phase: "dev_failed", error: frozen.error };
 
     const ctx: DevContext = {
       hu: {
@@ -264,6 +299,7 @@ function makeDevelop(router: AgentRouter, policy: RootPolicy) {
       // (Fase 12) Si venimos de un rechazo de revisión, pasamos los cambios
       // requeridos pendientes para que esta versión los corrija.
       reviewFindings: pendingReviewFindings(state),
+      ...(frozen ? { projectContext: frozen.text } : {}),
     };
 
     const result = await developProposal(router, ctx, rootDir);
@@ -834,6 +870,8 @@ export interface BuildHuGraphOptions {
   requireProject?: boolean;
   /** (Project Registry) Guardia previa a la escritura (obligatoria para aplicar con proyecto). */
   applyGuard?: ApplyGuard;
+  /** (Project Context, T8) Contexto congelado por ejecución para los prompts técnico y de desarrollo. */
+  executionContext?: ExecutionContextPort;
 }
 
 /**
@@ -867,10 +905,10 @@ export function buildHuGraph(options: BuildHuGraphOptions = {}) {
   const workflow = new StateGraph(HuState)
     .addNode("generateHuTask", makeGenerateHu(router, policy))
     .addNode("approvalTask", approvalGate)
-    .addNode("technicalAnalysisTask", makeTechnicalAnalysis(router, policy))
+    .addNode("technicalAnalysisTask", makeTechnicalAnalysis(router, policy, options.executionContext))
     .addNode("classifyTask", classifyTask)
     .addNode("partialDecisionTask", partialDecisionGate)
-    .addNode("developTask", makeDevelop(router, policy))
+    .addNode("developTask", makeDevelop(router, policy, options.executionContext))
     .addNode("functionalReviewTask", makeFunctionalReview(router, policy))
     .addNode("qualityReviewTask", makeQualityReview(router, policy))
     .addNode("bothReviewsTask", gateBothReviews)

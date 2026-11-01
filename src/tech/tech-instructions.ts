@@ -9,7 +9,7 @@ import type { AnalyzedHu } from "../hu/hu-schema.js";
  * efectos secundarios. Debe referenciar archivos REALES; si no puede verificar
  * una ruta o un flujo, debe decirlo en `openQuestions`, no inventar.
  */
-export function buildTechnicalPrompt(hu: AnalyzedHu, rootDir: string): string {
+export function buildTechnicalPrompt(hu: AnalyzedHu, rootDir: string, projectContext?: string): string {
   return [
     "Eres un analista tecnico de software. Tienes acceso de SOLO LECTURA al",
     `codigo del proyecto en: ${rootDir}`,
@@ -35,5 +35,14 @@ export function buildTechnicalPrompt(hu: AnalyzedHu, rootDir: string): string {
     "",
     "Historia de Usuario aprobada (JSON):",
     JSON.stringify(hu),
+    // (Project Context, T8) Sección delimitada; solo orienta, el código manda.
+    ...(projectContext
+      ? [
+          "",
+          "<<<CONTEXTO DEL PROYECTO (orientativo; verifica en el codigo antes de afirmar)",
+          projectContext.trimEnd(),
+          ">>>FIN DEL CONTEXTO DEL PROYECTO",
+        ]
+      : []),
   ].join("\n");
 }

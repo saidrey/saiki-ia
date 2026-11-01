@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { Command } from "@langchain/langgraph";
-import { buildHuGraph, type BuildHuGraphOptions } from "../hu/hu-graph.js";
+import { buildHuGraph, type BuildHuGraphOptions, type ExecutionContextPort } from "../hu/hu-graph.js";
 import type { AgentRouter } from "../agents/router.js";
 import { BasicModerator } from "../moderator/basic-moderator.js";
 import type {
@@ -23,8 +23,8 @@ import {
 } from "../moderator/session.js";
 import { createDelegatedTask, type DelegatedTask } from "../moderator/delegation.js";
 import { runDelegatedTask } from "../moderator/delegation-runner.js";
-import { KnowledgeStore } from "../knowledge/kb-store.js";
-import type { KnowledgeDoc, KnowledgeQuery, CreateDocInput } from "../knowledge/kb-types.js";
+import { KnowledgeError, KnowledgeStore, versionHash } from "../knowledge/kb-store.js";
+import type { KnowledgeCategory, KnowledgeDoc, KnowledgeQuery, CreateDocInput } from "../knowledge/kb-types.js";
 import { CoreStore, type ProjectHistoryRecord, type ProjectStatus } from "./core-store.js";
 import {
   ProjectRegistry,
@@ -35,6 +35,15 @@ import {
 } from "../projects/project-registry.js";
 import type {
   JevCorePort,
+  ContextScanResult,
+  ContextScanDetailView,
+  ExecutionContextBundlesResult,
+  KnowledgeDocView,
+  KnowledgeResult,
+  ContextScanView,
+  ContextSnapshotView,
+  ContextFileView,
+  ProjectContextView,
   FlowStatusView,
   ProposalView,
   HumanDecision,
@@ -43,6 +52,8 @@ import type {
   DecisionView,
   ProposalHistoryItem,
   ProposalStatus,
+  ProjectAnalysisResult,
+  ProjectAnalysisView,
 } from "./jev-contracts.js";
 import {
   projectExecution,
@@ -51,6 +62,7 @@ import {
   type ExecutionView,
   type ExecutionStage,
   type ExecutionProjectView,
+  type ExecutionContextView,
 } from "./execution-view.js";
 import type { ProjectBinding } from "../projects/project-binding.js";
 import { createApplyGuard } from "../projects/apply-guard.js";
@@ -58,6 +70,28 @@ import { KeyedMutex } from "./approval-lock.js";
 import type { ActiveRun, ExecutionLifecycle } from "./execution-lifecycle.js";
 import { EventBus } from "../events/event-bus.js";
 import { EventStore } from "../events/event-store.js";
+import type { ContextStore, FileQuery, ScanMode, ScanRecord, SnapshotRecord } from "../context/context-store.js";
+import {
+  ScanScheduler,
+  type ScanLifecycleEvent,
+  type ScanSchedulerOptions,
+  type ScanTargetResolution,
+  type SchedulerStartReport,
+} from "../context/scan-scheduler.js";
+import { redactSecrets } from "../context/redact.js";
+import { projectStreamKey } from "../events/event-store.js";
+import { computeFreshness, type Freshness } from "../context/freshness.js";
+import { normalizeSummary } from "../context/project-summary.js";
+import { buildContext, loadSnapshotIndex } from "../context/context-builder.js";
+import { PROJECT_ANALYSIS_PURPOSE, runProjectAnalyst } from "../analyst/project-analyst.js";
+import { checkProjectHealth } from "../projects/project-fs.js";
+import {
+  DEFAULT_CONTEXT_REFRESH_MS,
+  prepareExecutionContext,
+  verifyFrozenContext,
+  type ExecutionContextDeps,
+} from "../context/execution-context.js";
+import type { ExecutionContextRecord } from "./core-store.js";
 import type { SaikiEvent, SaikiEventType, EventDataByType, NewEvent } from "../events/event-types.js";
 import { randomUUID as uuid } from "node:crypto";
 import { MAX_HU_REVISIONS, type HuStateType } from "../hu/hu-state.js";
@@ -104,7 +138,26 @@ export interface SaikiCoreOptions {
   dataDir?: string;
   /** (Project Registry) Dónde crear el sandbox de cada ejecución. Default: temporal del sistema. */
   sandboxDir?: string;
+  /**
+   * (Project Context) Índice y snapshots de los proyectos (`context.sqlite` del
+   * directorio de datos). Sin él no hay escaneos (comportamiento anterior).
+   */
+  contextStore?: ContextStore;
+  /** (Project Context) Límites y puntos de prueba del scheduler de escaneos. */
+  contextScan?: Pick<ScanSchedulerOptions, "maxConcurrent" | "timeoutMs" | "scan" | "freshness" | "progressIntervalMs">;
+  /**
+   * (Project Context, T8) Espera máxima de una ejecución a un escaneo antes del
+   * análisis técnico (`SAIKI_CONTEXT_REFRESH_MS`). Default 30 s.
+   */
+  contextRefreshMs?: number;
+  /** (T8) Lectura de documentos del repositorio al construir el contexto (pruebas). */
+  contextReadRepoDoc?: ExecutionContextDeps["readRepoDoc"];
 }
+
+/** (T8) Contexto congelado de una ejecución, recuperado sin reconstruirlo. */
+export type ExecutionContextRecovery =
+  | { ok: true; context: ExecutionContextRecord }
+  | { ok: false; code: "not_frozen" | "integrity_failed"; message: string };
 
 /** Categoría resultante del procesamiento (incluye la aclaración de Fase 16). */
 export type HandleCategory = IntentClassification["category"] | "clarification";
@@ -231,6 +284,16 @@ export class SaikiCore implements JevCorePort {
   /** (Project Registry) Registro de proyectos; solo lo administra el humano vía API. */
   private readonly projects: ProjectRegistry;
   private readonly kb: KnowledgeStore;
+  /** (Project Context) Contexto de proyectos; ausente si no se configuró `contextStore`. */
+  private readonly contextStore?: ContextStore;
+  private readonly scans?: ScanScheduler;
+  private readonly freshness: (rootPath: string) => Promise<Freshness>;
+  /** Directorio de datos absoluto (exclusión del escáner; se oculta en los errores). */
+  private readonly dataDir: string;
+  /** (T6) Última frescura publicada por proyecto: "ready|stale:snapshotId". */
+  private readonly lastFreshness = new Map<string, string>();
+  /** (Project Context) Resultado de la recuperación de escaneos al arrancar. */
+  readonly contextStartReport: SchedulerStartReport | null = null;
   private readonly moderator: Moderator | AsyncModerator;
   /** Grafo de desarrollo compilado (reutilizable; reanuda por thread_id). */
   private readonly graph: ReturnType<typeof buildHuGraph>;
@@ -252,6 +315,10 @@ export class SaikiCore implements JevCorePort {
    * Clave: executionId → (stageId → status).
    */
   private readonly lastStageStatus = new Map<string, Map<string, string>>();
+  /** (T11) Último análisis de cada proyecto (en memoria) y los que están en curso. */
+  private readonly analyses = new Map<string, ProjectAnalysisView>();
+  private readonly analysisRuns = new Set<Promise<void>>();
+  private readonly contextReadRepoDoc?: ExecutionContextDeps["readRepoDoc"];
 
   constructor(options: SaikiCoreOptions) {
     this.router = options.router;
@@ -259,6 +326,7 @@ export class SaikiCore implements JevCorePort {
     this.store = options.coreStore ?? new CoreStore();
     this.projects = new ProjectRegistry(this.store, { dataDir: options.dataDir ?? ".saiki" });
     this.kb = options.knowledge ?? new KnowledgeStore();
+    this.contextReadRepoDoc = options.contextReadRepoDoc;
     this.moderator = options.moderator ?? new BasicModerator();
     // (Project Registry) Cada ejecución trabaja sobre el repositorio de su
     // proyecto (state.project) y aplica solo tras la guardia.
@@ -267,9 +335,29 @@ export class SaikiCore implements JevCorePort {
       ...this.graphOptions,
       requireProject: true,
       applyGuard: createApplyGuard({ store: this.store, sandboxDir: options.sandboxDir }),
+      // (T8) Sin store de contexto no hay índice: los prompts quedan como antes.
+      ...(options.contextStore ? { executionContext: this.executionContextPort(options) } : {}),
     });
     this.eventBus = options.eventBus;
     this.eventStore = options.eventStore;
+
+    // (Project Context, T5) Escaneos en segundo plano: recupera los
+    // interrumpidos y encola el inicial de los proyectos sin snapshot.
+    this.freshness = options.contextScan?.freshness ?? ((root) => computeFreshness(root));
+    this.dataDir = resolve(options.dataDir ?? ".saiki");
+    if (options.contextStore) {
+      this.contextStore = options.contextStore;
+      this.scans = new ScanScheduler({
+        ...options.contextScan,
+        store: options.contextStore,
+        resolveTarget: (id) => this.scanTarget(id),
+        listActiveProjects: () => this.store.listProjects().filter((p) => p.status === "active").map((p) => p.id),
+        excludePaths: [this.dataDir],
+        freshness: this.freshness,
+        onEvent: (e) => this.onScanEvent(e),
+      });
+      this.contextStartReport = this.scans.start();
+    }
   }
 
   /** ¿Hay observabilidad de eventos configurada? */
@@ -584,8 +672,8 @@ export class SaikiCore implements JevCorePort {
   /** Registra conocimiento NUEVO como PROPUESTA (nunca aprobado directamente). */
   proposeKnowledge(input: CreateDocInput): KnowledgeDoc {
     const doc = this.kb.create(input);
-    // (Fase 20) Evento real: una propuesta de conocimiento se creó.
-    this.emit("knowledge.proposed", { docId: doc.id, title: doc.title, category: doc.category }, {});
+    // (Fase 20) Evento real: una propuesta de conocimiento se creó. (T10) Va al stream del proyecto si tiene.
+    this.emit("knowledge.proposed", { docId: doc.id, title: doc.title, category: doc.category, version: doc.version }, knowledgeCtx(doc));
     return doc;
   }
 
@@ -656,7 +744,10 @@ export class SaikiCore implements JevCorePort {
   }
 
   async registerProject(input: RegisterInput, actor: string): Promise<ProjectResult> {
-    return this.projects.register(input, actor);
+    const r = this.projects.register(input, actor);
+    // (Project Context) Primer escaneo, en segundo plano.
+    if (r.ok) this.scans?.ensureInitialScan(r.project.id);
+    return r;
   }
 
   async updateProject(projectId: string, input: UpdateInput, actor: string): Promise<ProjectResult> {
@@ -680,7 +771,213 @@ export class SaikiCore implements JevCorePort {
   }
 
   async activateProject(projectId: string, actor: string): Promise<ProjectResult> {
-    return this.projects.activate(projectId, actor);
+    const r = this.projects.activate(projectId, actor);
+    if (r.ok) this.scans?.ensureInitialScan(r.project.id);
+    return r;
+  }
+
+  // ── (Project Context, T5) Contexto de proyectos ─────────────────────────────
+
+  /** Proyecto escaneable: existe, está activo y su repositorio es el registrado. */
+  private scanTarget(projectId: string): ScanTargetResolution {
+    const p = this.projects.record(projectId);
+    if (!p) return { ok: false, code: "project_not_found", message: `El proyecto "${projectId}" no existe.` };
+    if (p.status !== "active") return { ok: false, code: "project_inactive", message: `El proyecto "${p.name}" está desactivado.` };
+    const h = checkProjectHealth(p.rootPath, p.fingerprint);
+    if (h.health !== "ok") {
+      return { ok: false, code: "project_unhealthy", message: `El proyecto "${p.name}" no está disponible: ${h.detail ?? h.health}.` };
+    }
+    return { ok: true, target: { projectId, rootPath: p.rootPath, fingerprint: p.fingerprint } };
+  }
+
+  async getProjectContext(projectId: string): Promise<ProjectContextView | null> {
+    if (!this.projects.record(projectId)) return null;
+    const store = this.contextStore;
+    const empty: ProjectContextView = { projectId, status: "none", snapshot: null, currentScan: null, lastScan: null, stale: null };
+    if (!store) return empty;
+
+    const current = store.activeScans(projectId)[0] ?? null;
+    const last = store.listScans(projectId, 50).find((s) => s.status !== "queued" && s.status !== "running") ?? null;
+    const snap = store.latestSnapshot(projectId);
+
+    let stale: ProjectContextView["stale"] = null;
+    if (snap) {
+      const target = this.scanTarget(projectId);
+      if (!target.ok) {
+        stale = { reason: "project_unavailable", changedPaths: null };
+      } else {
+        const fresh = await this.freshness(target.target.rootPath).catch(() => null);
+        const base = store.getScan(snap.scanId)?.signature ?? null;
+        if (!fresh || base === null || fresh.signature !== base) stale = { reason: "changes_detected", changedPaths: fresh?.changedPaths ?? null };
+      }
+      this.observeFreshness(projectId, snap.id, stale);
+    }
+    const status = current
+      ? "scanning"
+      : snap
+        ? stale
+          ? "stale"
+          : "ready"
+        : last?.status === "failed"
+          ? "failed"
+          : "none";
+    return {
+      ...empty,
+      status,
+      snapshot: snap ? this.snapshotView(snap) : null,
+      currentScan: current ? this.scanView(current) : null,
+      lastScan: last ? this.scanView(last) : null,
+      stale,
+    };
+  }
+
+  async requestContextScan(projectId: string, mode: ScanMode = "incremental"): Promise<ContextScanResult> {
+    if (!this.scans) return { ok: false, code: "context_disabled", message: "El contexto de proyectos no está configurado." };
+    const r = this.scans.request(projectId, { mode, trigger: "manual" });
+    return r.ok ? { ok: true, scan: this.scanView(r.scan), deduplicated: r.deduplicated } : r;
+  }
+
+  async listContextScans(projectId: string, limit = 20): Promise<ContextScanView[] | null> {
+    if (!this.projects.record(projectId)) return null;
+    return (this.contextStore?.listScans(projectId, limit) ?? []).map((s) => this.scanView(s));
+  }
+
+  async getContextScan(projectId: string, scanId: string): Promise<ContextScanDetailView | null> {
+    const scan = this.projects.record(projectId) ? this.contextStore?.getScan(scanId) : null;
+    if (!scan || scan.projectId !== projectId) return null;
+    return { ...this.scanView(scan), changes: scan.changes, snapshotId: this.contextStore!.snapshotOfScan(scanId)?.id ?? null };
+  }
+
+  async getContextSnapshot(projectId: string, snapshotId: string): Promise<ContextSnapshotView | null> {
+    if (!this.projects.record(projectId)) return null;
+    const snap = this.contextStore?.getSnapshot(projectId, snapshotId);
+    return snap ? this.snapshotView(snap) : null;
+  }
+
+  async listContextFiles(projectId: string, query: FileQuery = {}): Promise<{ files: ContextFileView[]; nextCursor: string | null } | null> {
+    if (!this.projects.record(projectId)) return null;
+    const limit = query.limit ?? 200;
+    const rows = this.contextStore?.listFiles(projectId, { ...query, limit }) ?? [];
+    const files = rows.map(({ path, kind, lang, size, mtimeMs }) => ({ path, kind, lang, size, mtimeMs }));
+    return { files, nextCursor: rows.length === limit ? rows[rows.length - 1].path : null };
+  }
+
+  /** (T6) Vista pública de un escaneo: sin raíz, huella ni firma; error saneado. */
+  private scanView(s: ScanRecord): ContextScanView {
+    return {
+      id: s.id,
+      projectId: s.projectId,
+      mode: s.mode,
+      status: s.status,
+      trigger: s.trigger,
+      gitHead: s.gitHead,
+      createdAt: s.createdAt,
+      startedAt: s.startedAt,
+      finishedAt: s.finishedAt,
+      stats: s.stats,
+      error: s.error === null ? null : this.safeScanError(s.error, s.rootPath),
+    };
+  }
+
+  private snapshotView(s: SnapshotRecord): ContextSnapshotView {
+    const summary = normalizeSummary(s.summary);
+    // El error de git puede citar rutas absolutas del repositorio.
+    const root = this.projects.record(s.projectId)?.rootPath;
+    if (summary.gitError && root) summary.gitError = this.safeScanError(summary.gitError, root);
+    return { id: s.id, scanId: s.scanId, createdAt: s.createdAt, summary };
+  }
+
+  /** Mensaje de error de un escaneo sin rutas absolutas del proyecto o de los datos, ni secretos. */
+  private safeScanError(error: string, rootPath: string): string {
+    let msg = error.split(rootPath).join("<proyecto>").split(this.dataDir).join("<datos>");
+    msg = redactSecrets(msg);
+    return msg.length > 300 ? `${msg.slice(0, 300)}…` : msg;
+  }
+
+  /**
+   * (T6) Publica el ciclo de vida de los escaneos como eventos del stream del
+   * proyecto. Tras publicar un snapshot, comprueba la frescura (puede haber
+   * cambios hechos durante el escaneo).
+   */
+  private onScanEvent(e: ScanLifecycleEvent): void {
+    const { scan } = e;
+    const base = { scanId: scan.id, mode: scan.mode, trigger: scan.trigger };
+    const ctx = { projectId: scan.projectId };
+    switch (e.kind) {
+      case "queued":
+        this.emit("context.scan.queued", base, ctx);
+        break;
+      case "started":
+        this.emit("context.scan.started", base, ctx);
+        break;
+      case "progress":
+        this.emit("context.scan.progress", { ...base, ...e.progress }, ctx);
+        break;
+      case "failed":
+      case "interrupted":
+        this.emit(e.kind === "failed" ? "context.scan.failed" : "context.scan.interrupted", { ...base, error: this.safeScanError(scan.error ?? "", scan.rootPath) }, ctx);
+        break;
+      case "completed": {
+        const snap = e.snapshot;
+        this.emit("context.scan.completed", { ...base, snapshotId: snap.id, stats: { ...scan.stats } }, ctx);
+        this.emit("context.snapshot.published", { snapshotId: snap.id, scanId: scan.id, createdAt: snap.createdAt }, ctx);
+        void this.freshness(scan.rootPath)
+          .then((f) => {
+            if (this.contextStore?.latestSnapshot(scan.projectId)?.id !== snap.id) return; // ya hay otro más reciente
+            const stale = f.signature === scan.signature ? null : { reason: "changes_detected" as const, changedPaths: f.changedPaths };
+            this.observeFreshness(scan.projectId, snap.id, stale);
+          })
+          .catch(() => undefined);
+        break;
+      }
+    }
+  }
+
+  /**
+   * (T6) Emite `context.freshness.changed` solo si la frescura observada
+   * (ready/stale) difiere de la última publicada para el proyecto. La última se
+   * recupera del stream persistido, así un reinicio no repite el evento.
+   */
+  private observeFreshness(projectId: string, snapshotId: string, stale: ProjectContextView["stale"]): void {
+    if (!this.lastFreshness.has(projectId) && this.eventStore) {
+      const prev = this.eventStore
+        .getAll(projectStreamKey(projectId))
+        .filter((ev) => ev.type === "context.freshness.changed")
+        .at(-1) as SaikiEvent<"context.freshness.changed"> | undefined;
+      if (prev) this.lastFreshness.set(projectId, `${prev.data.freshness}:${prev.data.snapshotId}`);
+    }
+    const freshness = stale ? "stale" : "ready";
+    const key = `${freshness}:${snapshotId}`;
+    if (this.lastFreshness.get(projectId) === key) return;
+    this.lastFreshness.set(projectId, key);
+    this.emit(
+      "context.freshness.changed",
+      { freshness, reason: stale?.reason ?? null, changedPaths: stale?.changedPaths ?? null, snapshotId },
+      { projectId },
+    );
+  }
+
+  /** (Pruebas) Espera a que el escaneo termine. */
+  waitForScan(scanId: string): Promise<ScanRecord> {
+    if (!this.scans) return Promise.reject(new Error("El contexto de proyectos no está configurado."));
+    return this.scans.wait(scanId);
+  }
+
+  /** (Pruebas) Espera a que no quede ningún escaneo en cola ni en curso. */
+  contextIdle(): Promise<void> {
+    return this.scans?.idle() ?? Promise.resolve();
+  }
+
+  /**
+   * (Project Context) Tras aplicar sobre el repositorio real, el contexto queda
+   * desfasado: escaneo incremental en segundo plano. No en sandbox (el
+   * repositorio del proyecto no cambió).
+   */
+  private scanAfterApply(before: string, values: Partial<HuStateType>): void {
+    const p = values.project;
+    if (!this.scans || !p || !values.applicationId || values.applicationId === before) return;
+    if (values.applyTarget !== p.rootPath) return;
+    this.scans.request(p.projectId, { mode: "incremental", trigger: "post_apply" });
   }
 
   async getFlowStatus(threadId: string): Promise<FlowStatusView | null> {
@@ -736,10 +1033,19 @@ export class SaikiCore implements JevCorePort {
    */
   private async runGraph(threadId: string, input: unknown, trigger: ActiveRun["trigger"]): Promise<void> {
     this.activeRuns.set(threadId, { since: new Date().toISOString(), trigger });
+    const config = { configurable: { thread_id: threadId } };
+    let appliedBefore = "";
     try {
-      await this.graph.invoke(input as never, { configurable: { thread_id: threadId } });
+      if (this.scans) appliedBefore = ((await this.graph.getState(config)).values as Partial<HuStateType>)?.applicationId ?? "";
+      await this.graph.invoke(input as never, config);
     } finally {
       this.activeRuns.delete(threadId);
+      if (this.scans) {
+        await this.graph
+          .getState(config)
+          .then((s) => this.scanAfterApply(appliedBefore, s.values as Partial<HuStateType>))
+          .catch(() => undefined);
+      }
       // (Estabilización) Registrar cada versión de propuesta que apareció en este
       // tramo (también las rehechas en ciclos de corrección). No debe tumbar el flujo.
       await this.captureProposalVersions(threadId).catch(() => undefined);
@@ -846,7 +1152,136 @@ export class SaikiCore implements JevCorePort {
       pausedKind: pausedGateKind(state.tasks),
       active: this.activeRuns.get(threadId) ?? null,
     });
-    return { ...view, project: this.executionProjectView(values.project ?? null), applyTarget: values.applyTarget || null };
+    return {
+      ...view,
+      project: this.executionProjectView(values.project ?? null),
+      applyTarget: values.applyTarget || null,
+      context: this.executionContextView(threadId),
+    };
+  }
+
+  /**
+   * (T8) Contexto congelado de una ejecución (la última versión de la HU, o la
+   * pedida). Nunca se reconstruye con el índice actual: si no se congeló, o no
+   * supera la verificación, se dice explícitamente.
+   */
+  getExecutionContext(executionId: string, huVersion?: number): ExecutionContextRecovery {
+    const all = this.store.listExecutionContexts(executionId);
+    const r = huVersion === undefined ? all.at(-1) : all.find((c) => c.huVersion === huVersion);
+    if (!r) {
+      return {
+        ok: false,
+        code: "not_frozen",
+        message: "Esta ejecución no tiene contexto congelado (anterior a T8 o sin análisis técnico); no se reconstruye con el índice actual.",
+      };
+    }
+    if (!verifyFrozenContext(r)) {
+      return { ok: false, code: "integrity_failed", message: "El contexto congelado de esta ejecución no supera la verificación de integridad." };
+    }
+    return { ok: true, context: r };
+  }
+
+  async getExecutionContextBundles(executionId: string, huVersion?: number): Promise<ExecutionContextBundlesResult> {
+    const state = await this.graph.getState({ configurable: { thread_id: executionId } });
+    if (state.values === undefined || Object.keys(state.values).length === 0) {
+      return { ok: false, code: "not_found", message: `Ejecución "${executionId}" no encontrada.` };
+    }
+    const r = this.getExecutionContext(executionId, huVersion);
+    if (!r.ok) return r;
+    const c = r.context;
+    // Aislamiento: el contexto debe ser del proyecto con el que nació la ejecución.
+    if (this.store.getExecutionProject(executionId)?.projectId !== c.projectId) {
+      return { ok: false, code: "integrity_failed", message: "El contexto congelado no corresponde al proyecto de esta ejecución." };
+    }
+    return {
+      ok: true,
+      context: {
+        executionId,
+        projectId: c.projectId,
+        huVersion: c.huVersion,
+        snapshotId: c.snapshotId,
+        builtAt: c.builtAt,
+        stale: c.stale,
+        staleReason: c.staleReason,
+        technicalBundle: c.bundle,
+        developerBundle: c.devBundle,
+      },
+    };
+  }
+
+  /** (T8) Puerto del grafo: prepara y congela el contexto de cada ejecución. */
+  private executionContextPort(options: SaikiCoreOptions): ExecutionContextPort {
+    const refreshMs = options.contextRefreshMs ?? DEFAULT_CONTEXT_REFRESH_MS;
+    return {
+      prepare: async ({ executionId, huVersion, state }) => {
+        const binding = state.project;
+        if (!binding || !state.hu || !this.contextStore || !this.scans) {
+          return { ok: false, error: "No se puede preparar el contexto: falta el proyecto, la HU o el índice." };
+        }
+        // Aislamiento: el proyecto del estado debe ser el registrado para esta ejecución.
+        const registered = this.store.getExecutionProject(executionId);
+        if (!registered || registered.projectId !== binding.projectId) {
+          return { ok: false, error: "El proyecto de la ejecución no coincide con su vinculación: no se prepara contexto." };
+        }
+        const r = await prepareExecutionContext(
+          {
+            coreStore: this.store,
+            contextStore: this.contextStore,
+            scans: this.scans,
+            freshness: this.freshness,
+            refreshMs,
+            readRepoDoc: options.contextReadRepoDoc,
+            // (T10) Versiones aprobadas vigentes del proyecto; la referencia es la versión exacta.
+            knowledge: (pid) =>
+              this.kb.approvedForProject(pid).map((d) => ({
+                docId: d.id,
+                version: d.version,
+                title: d.title,
+                category: d.category,
+                content: d.content,
+                status: d.status,
+              })),
+          },
+          {
+            executionId,
+            huVersion,
+            sessionId: this.sessionOfExecution(executionId)?.sessionId ?? null,
+            project: registered,
+            hu: state.hu,
+            pinnedSnapshotId: state.contextSnapshotId ?? null,
+          },
+        );
+        return r.ok ? { ok: true, text: r.record.bundle, snapshotId: r.record.snapshotId } : r;
+      },
+      developer: ({ executionId, huVersion }) => {
+        const r = this.store.getExecutionContext(executionId, huVersion);
+        if (!r) return null;
+        if (!verifyFrozenContext(r)) return { ok: false, error: "El contexto congelado de esta ejecución no supera la verificación de integridad." };
+        return { ok: true, text: r.devBundle };
+      },
+    };
+  }
+
+  /** (T8) Resumen público del contexto congelado: sin texto, sin hashes internos. */
+  private executionContextView(executionId: string): ExecutionContextView | null {
+    const r = this.store.listExecutionContexts(executionId).at(-1);
+    if (!r) return null;
+    return {
+      huVersion: r.huVersion,
+      snapshotId: r.snapshotId,
+      builtAt: r.builtAt,
+      stale: r.stale,
+      staleReason: r.staleReason,
+      sources: r.sources.map((s) =>
+        s.kind === "knowledge"
+          ? { kind: s.kind, ref: s.ref, version: s.version, title: s.title, included: s.included }
+          : s.kind === "repo-doc"
+            ? { kind: s.kind, ref: s.ref, included: s.included }
+            : { kind: s.kind, ref: s.ref },
+      ),
+      files: r.files.map((f) => ({ path: f.path, score: f.score, reasons: f.reasons })),
+      intact: verifyFrozenContext(r),
+    };
   }
 
   /** (Project Registry) Copia de la ejecución + el proyecto tal como está hoy en el registro. */
@@ -931,12 +1366,205 @@ export class SaikiCore implements JevCorePort {
     return null;
   }
 
-  async searchKnowledge(query: KnowledgeQuery): Promise<KnowledgeDoc[]> {
-    return this.kb.search(query);
+  async searchKnowledge(query: KnowledgeQuery): Promise<KnowledgeDocView[]> {
+    return this.kb.search(query).map(knowledgeView);
   }
 
-  async getKnowledgeDoc(id: string): Promise<KnowledgeDoc | null> {
-    return this.kb.get(id);
+  async getKnowledgeDoc(id: string): Promise<KnowledgeDocView | null> {
+    const doc = this.kb.get(id);
+    return doc ? knowledgeView(doc) : null;
+  }
+
+  // ── (T10) JevKnowledgePort: conocimiento por proyecto y versiones ──────────
+
+  async getKnowledgeVersions(docId: string): Promise<KnowledgeDocView[] | null> {
+    const doc = this.kb.get(docId);
+    return doc ? this.kb.versions(doc.documentId).map(knowledgeView) : null;
+  }
+
+  async proposeProjectKnowledge(
+    projectId: string,
+    input: { category: KnowledgeCategory; title: string; content: string },
+    actor: string,
+  ): Promise<KnowledgeResult> {
+    if (!this.projects.record(projectId)) return { ok: false, code: "project_not_found", message: `El proyecto "${projectId}" no existe.` };
+    return this.knowledgeAction(() => this.proposeKnowledge({ id: `kb-${uuid()}`, ...input, origin: actor, projectId }));
+  }
+
+  async proposeKnowledgeVersion(docId: string, changes: { title?: string; content?: string }, actor: string): Promise<KnowledgeResult> {
+    return this.knowledgeAction(() => {
+      const doc = this.kb.proposeVersion(docId, changes, actor);
+      this.emit("knowledge.proposed", { docId: doc.id, title: doc.title, category: doc.category, version: doc.version }, knowledgeCtx(doc));
+      return doc;
+    });
+  }
+
+  async decideKnowledge(docId: string, decision: "approve" | "reject", versionHash: string, humanActor: string): Promise<KnowledgeResult> {
+    return this.knowledgeAction(() => {
+      if (decision === "reject") return this.kb.reject(docId, humanActor, versionHash);
+      const doc = this.kb.approve(docId, humanActor, versionHash);
+      this.emit(
+        "knowledge.approved",
+        { docId: doc.id, documentId: doc.documentId, version: doc.version, title: doc.title, category: doc.category, actor: humanActor },
+        knowledgeCtx(doc),
+      );
+      return doc;
+    });
+  }
+
+  async archiveKnowledge(docId: string, humanActor: string): Promise<KnowledgeResult> {
+    return this.knowledgeAction(() => this.kb.archive(docId, humanActor));
+  }
+
+  async exportProjectKnowledge(projectId: string): Promise<string | null> {
+    const project = this.projects.record(projectId);
+    if (!project) return null;
+    const order = ["conventions", "architecture", "decisions"];
+    const label: Record<string, string> = { conventions: "Convenciones", architecture: "Arquitectura", decisions: "Decisiones" };
+    // Convenciones primero, como en el contexto.
+    const docs = this.kb
+      .approvedForProject(projectId)
+      .sort((a, b) => order.indexOf(a.category) - order.indexOf(b.category) || a.title.localeCompare(b.title, "es"));
+    const lines = [`# Conocimiento aprobado de «${project.name}»`, ""];
+    if (docs.length === 0) lines.push("Todavía no hay conocimiento aprobado.");
+    for (const d of docs) {
+      const approved = this.kb.history(d.id).filter((h) => h.action === "status:proposed->approved").at(-1);
+      lines.push(`## ${d.title}`, "", `Categoría: ${label[d.category] ?? d.category}. Versión ${d.version}${approved ? `, aprobada por ${approved.actor} el ${approved.at}` : ""}.`, "", d.content.trimEnd(), "");
+    }
+    return redactSecrets(lines.join("\n").trimEnd() + "\n");
+  }
+
+  // ── (T11) Project Analyst ──────────────────────────────────────────────────
+
+  async analyzeProject(projectId: string, actor: string): Promise<ProjectAnalysisResult> {
+    const target = this.scanTarget(projectId);
+    if (!target.ok) return target;
+    if (!this.contextStore) return { ok: false, code: "context_disabled", message: "El contexto de proyectos no está configurado." };
+    if (this.analyses.get(projectId)?.status === "running") {
+      return { ok: false, code: "analysis_running", message: "Ya hay un análisis de este proyecto en curso." };
+    }
+    const snapshot = this.contextStore.latestSnapshot(projectId);
+    if (!snapshot) return { ok: false, code: "no_snapshot", message: "El proyecto todavía no tiene snapshot: escanéalo antes de analizarlo." };
+    const view: ProjectAnalysisView = {
+      id: `analysis-${uuid()}`,
+      projectId,
+      status: "running",
+      snapshotId: snapshot.id,
+      actor,
+      startedAt: new Date().toISOString(),
+      finishedAt: null,
+      proposed: [],
+      skipped: [],
+      error: null,
+    };
+    this.analyses.set(projectId, view);
+    this.emit("project.analysis.started", { analysisId: view.id, snapshotId: view.snapshotId }, { projectId });
+    const run = this.runProjectAnalysis(view, target.target.rootPath).finally(() => this.analysisRuns.delete(run));
+    this.analysisRuns.add(run);
+    return { ok: true, analysis: { ...view } };
+  }
+
+  async getProjectAnalysis(projectId: string): Promise<ProjectAnalysisView | null> {
+    const a = this.analyses.get(projectId);
+    return a ? { ...a } : null;
+  }
+
+  /** (Pruebas) Espera a que terminen los análisis en curso. */
+  async analysisIdle(): Promise<void> {
+    await Promise.all([...this.analysisRuns]);
+  }
+
+  /**
+   * Contexto del snapshot (buildContext, sin escanear) → una llamada al agente →
+   * validación completa → todas las propuestas en una transacción. Sin reintentos.
+   */
+  private async runProjectAnalysis(view: ProjectAnalysisView, rootPath: string): Promise<void> {
+    const projectId = view.projectId;
+    const finish = (patch: Partial<ProjectAnalysisView>) => this.analyses.set(projectId, { ...view, ...patch, finishedAt: new Date().toISOString() });
+    const fail = (error: string) => {
+      let msg = redactSecrets(error.split(rootPath).join("<proyecto>").split(this.dataDir).join("<datos>"));
+      if (msg.length > 2000) msg = `${msg.slice(0, 2000)}…`;
+      finish({ status: "failed", error: msg });
+      this.emit("project.analysis.failed", { analysisId: view.id, snapshotId: view.snapshotId, error: msg }, { projectId });
+    };
+    try {
+      const store = this.contextStore!;
+      const index = loadSnapshotIndex(store, projectId, view.snapshotId);
+      if (!index.ok || !index.snapshot) return fail(index.ok ? "El snapshot ya no está disponible." : index.message);
+      const project = this.projects.record(projectId)!;
+      const fresh = await this.freshness(rootPath).catch(() => null);
+      const base = store.getScan(index.snapshot.scanId)?.signature ?? null;
+      const stale = fresh && base !== null && fresh.signature === base ? null : { reason: "changes_detected", changedPaths: fresh?.changedPaths ?? null };
+      const approved = this.kb.approvedForProject(projectId);
+      const built = await buildContext({
+        project: { id: projectId, name: project.name, rootPath },
+        snapshot: index.snapshot,
+        files: index.files,
+        hu: PROJECT_ANALYSIS_PURPOSE,
+        knowledge: approved.map((d) => ({ docId: d.id, version: d.version, title: d.title, category: d.category, content: d.content, status: d.status })),
+        history: [],
+        stale,
+        readRepoDoc: this.contextReadRepoDoc,
+      });
+      if (!built.ok) return fail(`No se pudo construir el contexto: ${built.message}`);
+
+      const r = await runProjectAnalyst(this.router, {
+        projectName: project.name,
+        rootDir: rootPath,
+        bundle: built.bundle.text,
+        modules: normalizeSummary(index.snapshot.summary).modules,
+        approved: approved.map((d) => ({ id: d.id, category: d.category, title: d.title, version: d.version })),
+        index: new Map(index.files.map((f) => [f.path, f])),
+      });
+      if (!r.ok) return fail(r.error);
+
+      const note = `analysis=${view.id}; snapshot=${view.snapshotId}`;
+      const proposed: ProjectAnalysisView["proposed"] = [];
+      const skipped: ProjectAnalysisView["skipped"] = [];
+      const created: KnowledgeDoc[] = [];
+      this.kb.transaction(() => {
+        for (const d of r.documents) {
+          let doc: KnowledgeDoc;
+          if (d.basedOn) {
+            try {
+              doc = this.kb.proposeVersion(d.basedOn, { title: d.title, content: d.content }, PROJECT_ANALYST_ACTOR, note);
+            } catch (e) {
+              // Una propuesta pendiente por documento: no se toca la existente.
+              if (e instanceof KnowledgeError && e.code === "pending_exists") {
+                skipped.push({ title: d.title, basedOn: d.basedOn, reason: e.message });
+                continue;
+              }
+              throw e;
+            }
+          } else {
+            doc = this.kb.create({ id: `kb-${uuid()}`, title: d.title, category: d.category, content: d.content, origin: PROJECT_ANALYST_ACTOR, projectId }, note);
+          }
+          created.push(doc);
+          proposed.push({ docId: doc.id, documentId: doc.documentId, version: doc.version, title: doc.title, category: doc.category, basedOn: doc.basedOn, citedFiles: d.citedFiles });
+        }
+      });
+      for (const doc of created) {
+        this.emit("knowledge.proposed", { docId: doc.id, title: doc.title, category: doc.category, version: doc.version }, knowledgeCtx(doc));
+      }
+      finish({ status: "completed", proposed, skipped });
+      this.emit(
+        "project.analysis.completed",
+        { analysisId: view.id, snapshotId: view.snapshotId, proposed: proposed.map((p) => p.docId), skipped: skipped.length },
+        { projectId },
+      );
+    } catch (e) {
+      fail(`No se guardó ninguna propuesta: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  /** Traduce los errores de la KB a un resultado; cualquier otro error se propaga. */
+  private knowledgeAction(fn: () => KnowledgeDoc): KnowledgeResult {
+    try {
+      return { ok: true, document: knowledgeView(fn()) };
+    } catch (e) {
+      if (e instanceof KnowledgeError) return { ok: false, code: e.code, message: e.message };
+      throw e;
+    }
   }
 
   // ── JevCorePort: acciones (el Core ejecuta; una UI solo transmite) ─────────
@@ -1177,7 +1805,7 @@ export class SaikiCore implements JevCorePort {
   private emit<T extends SaikiEventType>(
     type: T,
     data: EventDataByType[T],
-    ctx: { executionId?: string; sessionId?: string },
+    ctx: { executionId?: string; sessionId?: string; projectId?: string },
   ): SaikiEvent | undefined {
     if (!this.eventBus && !this.eventStore) return undefined;
     const base: NewEvent<T> = {
@@ -1185,6 +1813,7 @@ export class SaikiCore implements JevCorePort {
       type,
       executionId: ctx.executionId,
       sessionId: ctx.sessionId,
+      ...(ctx.projectId !== undefined ? { projectId: ctx.projectId } : {}),
       timestamp: new Date().toISOString(),
       data,
     };
@@ -1305,9 +1934,11 @@ export class SaikiCore implements JevCorePort {
 
   /** Cierra recursos (stores SQLite). */
   close(): void {
+    this.scans?.close();
     this.store.close();
     this.kb.close();
     this.eventStore?.close();
+    this.contextStore?.close();
   }
 }
 
@@ -1316,6 +1947,19 @@ export class SaikiCore implements JevCorePort {
  * leído del payload del interrupt (`kind`). null si no hay interrupt pendiente:
  * un "siguiente nodo" a mitad de una ejecución no cuenta como pausa.
  */
+/** (T11) Autor de las propuestas del Project Analyst: actor de agente (la KB le niega aprobar). */
+const PROJECT_ANALYST_ACTOR = "projectAnalyst";
+
+/** (T10) Versión de conocimiento con el hash que se aprueba. */
+function knowledgeView(doc: KnowledgeDoc): KnowledgeDocView {
+  return { ...doc, versionHash: versionHash(doc) };
+}
+
+/** (T10) Los eventos de conocimiento de un proyecto van a su stream; los globales, al general. */
+function knowledgeCtx(doc: KnowledgeDoc): { projectId?: string } {
+  return doc.projectId ? { projectId: doc.projectId } : {};
+}
+
 function pausedGateKind(tasks: ReadonlyArray<{ interrupts: ReadonlyArray<{ value?: unknown }> }>): string | null {
   for (const t of tasks) {
     for (const i of t.interrupts) {

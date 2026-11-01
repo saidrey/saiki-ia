@@ -11,10 +11,11 @@ El rol `develop` invoca Claude con estos flags, verificados empíricamente:
 | Flag | Efecto |
 | --- | --- |
 | `-p` | Modo no interactivo (print y salir). |
-| `--tools ""` | Desactiva TODAS las herramientas built-in (Bash/Write/Edit/Read/REPL). |
-| `--restricted` | Quita herramientas que ejecutan comandos o código. |
+| `--tools Read,Glob,Grep` | Únicas herramientas built-in de la sesión: solo lectura. |
+| `--allowedTools Read Glob Grep` + `--permission-mode dontAsk` | Las de lectura no piden permiso; cualquier otra se deniega sin preguntar. |
+| `--restricted` | Confina las herramientas de archivos al directorio de trabajo; quita las que ejecutan comandos o código. |
 | `--strict-mcp-config` | Ignora servidores MCP (podrían escribir). |
-| `--disallowedTools Write Edit Bash` | Denegación explícita (defensa en profundidad). |
+| `--disallowedTools Write Edit NotebookEdit Bash WebFetch WebSearch` | Denegación explícita (defensa en profundidad). |
 
 El prompt se pasa por **stdin**, NO como argumento posicional.
 

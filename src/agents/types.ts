@@ -31,7 +31,9 @@ export type AgentRole =
   // el flujo de desarrollo (investigar, comparar, redactar, consultar la KB).
   // No es un runtime concreto: por defecto se ejecuta con OpenCode (opcional),
   // pero el rol no está acoplado a él.
-  | "assistant";
+  | "assistant"
+  // (T11) Analista de proyecto: propone conocimiento del proyecto en solo lectura.
+  | "projectAnalyst";
 
 /** Estado del resultado de ejecutar una tarea con un agente. */
 export type AgentStatus = "success" | "failure";

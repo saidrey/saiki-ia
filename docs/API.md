@@ -19,8 +19,47 @@ Variables de entorno:
   aplicación se elige **por proyecto** (`sandbox` por defecto; `real` con
   confirmación explícita). Ver §5.3.
 
-El estado persiste en `.saiki/` (gitignored): `checkpoints.sqlite` (flujos),
-`core.sqlite` (sesiones/tareas, registro de proyectos), `knowledge.sqlite` (KB).
+- `SAIKI_DATA_DIR` — directorio de datos operativos, **ruta absoluta** (default
+  `.saiki/` en el directorio desde el que se arranca). Ver §1.1.
+
+### 1.1. Directorio de datos
+
+El estado persiste en el directorio de datos: `checkpoints.sqlite` (flujos),
+`core.sqlite` (sesiones/tareas, registro de proyectos), `events.sqlite`
+(eventos SSE), `knowledge.sqlite` (KB) y `context.sqlite` (Project Context:
+escaneos, índice de archivos y snapshots). Cada uno con sus `-wal`/`-shm`.
+
+- Sin `SAIKI_DATA_DIR` (o vacía): `./.saiki/` (gitignored), como siempre.
+- Con `SAIKI_DATA_DIR=/ruta/absoluta`: todas las bases de datos van ahí. Una
+  ruta relativa (o `~/…`) es un error y el backend no arranca.
+- El log de arranque muestra la ruta en uso (`Datos: …`).
+- El directorio de datos no se puede registrar como proyecto. Conviene que esté
+  fuera de cualquier repositorio registrado.
+
+```bash
+SAIKI_DATA_DIR="$HOME/.local/share/saiki-ia" npm run serve
+```
+
+**Sin migración automática.** Saiki-IA nunca mueve, copia ni borra datos. Si
+`SAIKI_DATA_DIR` apunta a un directorio sin bases de datos y `./.saiki/` sí las
+tiene, el arranque lo avisa y empieza vacío. Para trasladar los datos:
+
+1. Detén el backend (Ctrl+C) y espera a "Cerrando API…"; no debe quedar ningún
+   proceso usando las bases de datos.
+2. Crea el destino y mueve **todos** los archivos `*.sqlite*` (incluidos `-wal`
+   y `-shm`, que pueden tener cambios aún no consolidados):
+   ```bash
+   mkdir -p "$HOME/.local/share/saiki-ia"
+   mv .saiki/*.sqlite* "$HOME/.local/share/saiki-ia/"
+   ```
+   (Para conservar una copia, usa `cp` en vez de `mv`; no arranques después con
+   ambos directorios por error: serían dos estados distintos.)
+3. Arranca con la variable: `SAIKI_DATA_DIR="$HOME/.local/share/saiki-ia" npm run serve`.
+4. Comprueba en Jev que siguen las sesiones, ejecuciones y proyectos.
+
+Para volver atrás, repite los pasos en sentido inverso y arranca sin la variable.
+Las rutas de los proyectos registrados no cambian: se guardan como rutas
+absolutas en `core.sqlite`.
 
 Al arrancar, el backend intenta registrar su propio directorio como primer
 proyecto (D9), en modo sandbox y con actor `saiki-bootstrap`. Si no es un
@@ -92,8 +131,72 @@ not_a_repository | not_accessible`.
 - `POST /projects/:id/activate` → `{ project }`; `409 project_unhealthy` si el
   repositorio ya no es el registrado, `409 name_taken | nested_project`.
 
+### Contexto de proyectos (Project Context)
+Índice técnico de cada proyecto, generado sin IA por escaneos en segundo plano
+(`docs/PROJECT_CONTEXT_PROPOSAL.md`). La API solo usa la fachada del Core
+(`JevContextPort`); no lee SQLite ni lanza el escáner: el scheduler administra
+los escaneos. Las respuestas no incluyen la raíz absoluta, la huella del
+repositorio, la firma de frescura, el contenido de los archivos ni sus hashes.
+Los errores de escaneo se sanean (rutas del proyecto → `<proyecto>`, del
+directorio de datos → `<datos>`, credenciales → `***`).
+
+`ContextScan = { id, projectId, mode: "full"|"incremental", status: "queued"|
+"running"|"completed"|"failed"|"interrupted", trigger: "registered"|"manual"|
+"post_apply"|"restart", gitHead, createdAt, startedAt, finishedAt, stats: {
+listed, hashed, added, modified, deleted, renamed, skipped, truncated } | null,
+error }`.
+
+- `GET /projects/:id/context` → `{ context: { projectId, status: "none"|
+  "scanning"|"ready"|"stale"|"failed", snapshot: { id, scanId, createdAt,
+  summary } | null, currentScan: ContextScan | null, lastScan: ContextScan |
+  null, stale: { reason: "changes_detected"|"project_unavailable", changedPaths }
+  | null } }`. `snapshot` es el último válido aunque haya un escaneo en curso o
+  fallido. `summary` es el resumen técnico (`schemaVersion: 2`). La frescura se
+  calcula al pedir el estado (git en solo lectura, milisegundos).
+- `POST /projects/:id/context/scan` — Body opcional `{ "mode": "incremental"
+  (default) | "full" }` → `202 { scan, deduplicated }`. Si el proyecto ya tiene
+  un escaneo en cola o en curso, devuelve ese (`deduplicated: true`). Errores
+  `400` (mode), `404 project_not_found`, `409 project_inactive |
+  project_unhealthy`, `501 context_disabled`.
+- `GET /projects/:id/context/scans?limit=` (1–1000, default 20) → `{ projectId,
+  scans: ContextScan[] }`, del más reciente al más antiguo.
+- `GET /projects/:id/context/scans/:scanId` → `{ scan: ContextScan & { changes:
+  { added, modified, deleted, renamed: [{from, to}], truncated } | null,
+  snapshotId } }`. `changes` solo en escaneos completados, con un máximo de 200
+  rutas por tipo (los totales están en `stats`). 404 si el escaneo no es de ese
+  proyecto.
+- `GET /projects/:id/context/snapshots/:snapshotId` → `{ snapshot }` (404 si no
+  es de ese proyecto). Los snapshots son inmutables; no hay escritura por API.
+- `GET /projects/:id/context/files?prefix=&kind=&cursor=&limit=` → `{ projectId,
+  files: [{ path, kind, lang, size, mtimeMs }], nextCursor }`. `kind` ∈ `source |
+  test | config | manifest | doc | binary | secret | other`; `cursor` = el
+  `nextCursor` anterior. Los secretos aparecen solo por nombre.
+- `GET /projects/:id/context/events` — SSE del contexto del proyecto
+  (`docs/EVENTS.md` §11).
+
+Ejemplo (`GET /projects/prj-…/context`, recortado):
+
+```json
+{ "context": {
+  "projectId": "prj-…", "status": "ready", "stale": null, "currentScan": null,
+  "lastScan": { "id": "scan-…", "mode": "full", "status": "completed", "trigger": "registered",
+    "gitHead": null, "stats": { "listed": 418, "hashed": 418, "added": 418, "modified": 0,
+    "deleted": 0, "renamed": 0, "skipped": 3, "truncated": false }, "error": null, "…": "…" },
+  "snapshot": { "id": "snap-…", "scanId": "scan-…", "createdAt": "…",
+    "summary": { "schemaVersion": 2, "files": 418, "ecosystems": [{ "kind": "node", "…": "…" }], "…": "…" } } } }
+```
+
 ### Ejecuciones (desarrollo)
 - `GET /executions/:threadId` → `{ execution: ExecutionView }` (404 si no existe)
+- (Project Context, T9) `GET /executions/:threadId/context?huVersion=` → `200 {
+  context: { executionId, projectId, huVersion, snapshotId, builtAt, stale,
+  staleReason, technicalBundle, developerBundle } }`: el texto exacto congelado
+  que recibieron el analista técnico (Kiro) y el desarrollador (Claude); sin
+  `huVersion`, la última versión de la HU. Solo lectura, sin hashes; nunca se
+  reconstruye con el índice actual. `404 not_found` (ejecución) | `404
+  not_frozen` (sin contexto congelado: anterior a T8 o aún sin análisis técnico)
+  | `409 integrity_failed` (el texto no coincide con su hash o con el proyecto de
+  la ejecución) | `400` (`huVersion` no es un entero positivo).
 - `GET /executions/:threadId/stages` → `{ executionId, currentStage, stages }`
 - `GET /executions/:threadId/result` → `{ executionId, status, finalResult }`
 
@@ -114,10 +217,78 @@ not_a_repository | not_accessible`.
   viabilidad parcial (`kind` = `hu_review` | `feasibility_partial`). Ver §5.1.
 
 ### Knowledge Base
-- `GET /knowledge?query=...&category=...&status=...` → `{ documents: [...] }`
-- `GET /knowledge/:id` → `{ document }` (404 si no existe)
-  (La promoción a oficial sigue exigiendo actor humano; no se expone un endpoint
-  que relaje esa regla.)
+Cada fila es una **versión**. `KnowledgeDoc = { id, title, category, status:
+"proposed"|"approved"|"superseded"|"archived", content, origin, createdAt,
+updatedAt, supersededBy?, projectId: string|null, documentId, version, basedOn:
+string|null, versionHash }`. `projectId: null` = conocimiento global (el de
+siempre). `documentId` agrupa las versiones de un documento (= id de su versión
+1); `basedOn` es la versión aprobada de la que deriva una propuesta;
+`versionHash` es lo que se aprueba o rechaza.
+
+- `GET /knowledge?query=&category=&status=&projectId=` → `{ documents }`. Sin
+  `projectId`: **solo global** (comportamiento anterior). Con `projectId`: solo
+  ese proyecto (404 si no existe). Nunca se mezclan.
+- `GET /knowledge/:id` → `{ document }` (404).
+- (T10) `GET /knowledge/:id/versions` → `{ documentId, versions }` (de la 1 a la última).
+- (T10) `POST /projects/:id/knowledge` `{ category: "architecture"|"conventions"|"decisions", title, content }`
+  → `201 { document }` en `proposed`, versión 1, a nombre de la identidad humana local.
+- (T10) `POST /knowledge/:id/versions` `{ title?, content? }` → `201 { document }`:
+  versión N+1 `proposed` de la versión **aprobada** `:id` (que no cambia). `409
+  not_approved | pending_exists` (una propuesta pendiente por documento), `400 invalid`.
+- (T10) `POST /knowledge/:id/approve` · `POST /knowledge/:id/reject` `{ versionHash }`
+  → `200 { document }`. Aprobar convierte la versión en la oficial y la anterior
+  pasa a `superseded`; rechazar la archiva (historial `rejected`). `400` sin
+  `versionHash`; `409 hash_mismatch | not_proposed | stale_base` (la base ya no
+  es la vigente); `403 agent_forbidden`; `404`.
+- (T10) `POST /knowledge/:id/archive` → `200 { document }`: retira una versión
+  aprobada (o propuesta). `409` si ya es histórica.
+- (T10) `GET /projects/:id/knowledge/export` → `{ projectId, markdown }`: el
+  conocimiento aprobado vigente, con versión y aprobador (secretos redactados).
+
+Reglas: una versión que no está `proposed` es inmutable (también en SQLite);
+nada se borra; aprobar, rechazar y archivar exigen actor humano (lo pone el
+servidor); los agentes pueden proponer, pero no versionar decisiones aprobadas.
+Solo las versiones aprobadas del proyecto entran en el contexto de las
+ejecuciones, referenciadas por su id y versión exactos.
+
+### Project Analyst (T11)
+
+Un agente de solo lectura (rol `projectAnalyst`; por defecto Kiro con `fs_read`
+y `cwd` = raíz del proyecto) inspecciona el repositorio y **propone**
+conocimiento del proyecto. Solo se lanza a petición humana; una llamada al
+agente por solicitud, sin reintentos. Timeout: `SAIKI_KIRO_TIMEOUT_MS`.
+
+- `POST /projects/:id/analysis` → `202 { analysis }` (estado `running`).
+  `404` proyecto inexistente; `409 project_inactive | project_unhealthy |
+  no_snapshot | analysis_running` (uno por proyecto a la vez); `501
+  context_disabled`.
+- `GET /projects/:id/analysis` → `{ projectId, analysis }`: el último análisis
+  del proyecto en este proceso, o `null`. `analysis` = `{ id, projectId,
+  status: "running"|"completed"|"failed", snapshotId, actor, startedAt,
+  finishedAt, proposed: [{ docId, documentId, version, title, category,
+  basedOn, citedFiles }], skipped: [{ title, basedOn, reason }], error }`. Vive
+  en memoria: tras reiniciar el backend vuelve a `null` (las propuestas siguen
+  en la KB).
+
+Entrada del agente: el bundle de `buildContext` sobre el último snapshot (sin
+volver a escanear), los módulos del resumen del snapshot y el conocimiento
+aprobado vigente con sus ids. Salida: `{ documents: [{ category, title,
+content, citedFiles, basedOn }] }`, como mucho 6.
+
+Validación, todo o nada (con un solo error no se guarda nada): categoría
+`architecture | conventions | decisions`; título y contenido con límite de
+tamaño; cada `citedFiles[]` debe ser relativa (sin `..`, `.` ni `\`), estar en
+el índice del snapshot usado, no ser un secreto, existir en disco como archivo
+regular (no symlink) y resolverse dentro de la raíz real; `basedOn` debe ser una
+versión aprobada vigente del mismo proyecto y categoría (no una decisión).
+
+Guardado: en una transacción, cada documento entra como `proposed` del
+proyecto, `origin = "projectAnalyst"` (actor de agente: no puede aprobar,
+rechazar ni archivar). El contenido termina con una sección «Referencias» con
+las rutas verificadas y se redactan secretos. Con `basedOn` se crea la versión
+siguiente (`proposeVersion`); si ese documento ya tiene una propuesta pendiente,
+se omite y aparece en `skipped`. El historial de cada versión guarda
+`analysis=<id>; snapshot=<id>`.
 
 ## 4. ExecutionView (contrato normalizado)
 
@@ -150,6 +321,14 @@ Proyección ESTABLE del estado del grafo, sin exponer `HuState`. Campos:
   `current`, el proyecto tal como está hoy en el registro. `null` = ejecución
   anterior al registro. `applyTarget: string | null`: directorio donde se aplicó
   (repo real o sandbox de la ejecución).
+- (Project Context, T8, aditivo) `context: { huVersion, snapshotId, builtAt,
+  stale, staleReason, sources: [{ kind, ref, version?, title?, included? }],
+  files: [{ path, score, reasons }], intact } | null`: el contexto congelado que
+  recibió la ejecución (última versión de la HU). Sin el texto ni hashes
+  internos. `staleReason`: `changes_detected | refresh_timeout | refresh_failed |
+  project_unavailable | no_snapshot`. `intact: false` si el texto congelado no
+  coincide con su hash. `null` = sin contexto congelado (ejecución anterior a T8
+  o aún sin análisis técnico).
 
 Es HONESTA: distingue `available` / `unavailable` / `not_applicable` y no inventa
 etapas, resultados ni estados.
@@ -338,8 +517,9 @@ Suite completa: 221 tests en 25 archivos (fases 1-18 verdes).
 ## 8. Eventos en tiempo real (SSE) — añadido en Fase 20
 
 `GET /executions/:executionId/events` expone los eventos de la ejecución por
-Server-Sent Events (reconexión con `Last-Event-ID`, heartbeat). Ver
-`docs/EVENTS.md` para el contrato de eventos y ejemplos. La UI futura usará REST
+Server-Sent Events (reconexión con `Last-Event-ID`, heartbeat). (Project
+Context) `GET /projects/:id/context/events` hace lo mismo con los eventos de
+contexto del proyecto. Ver `docs/EVENTS.md` para el contrato de eventos y ejemplos. La UI futura usará REST
 para consultas/acciones y SSE para actualizaciones.
 
 Fuera de alcance aún: frontend, WebSockets, autenticación multiusuario,

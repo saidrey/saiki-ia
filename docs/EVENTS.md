@@ -49,7 +49,8 @@ sola vez.
 decidido. Orden observado: `approval.resolved` se emite DESPUÉS de los eventos
 de la ejecución reanudada (etapas, nueva `approval.required`, `execution.*`).
 | `assistant.message` | `{ taskId, status, summary }` |
-| `knowledge.proposed` | `{ docId, title, category }` |
+| `knowledge.proposed` | `{ docId, title, category, version? }` (T10: `version`) |
+| `knowledge.approved` | (T10) `{ docId, documentId, version, title, category, actor }` |
 
 `data` NO contiene secretos, tokens ni stderr crudo (el Core sanea antes de
 publicar; verificado por test).
@@ -173,3 +174,61 @@ Suite completa: 237 tests en 27 archivos (fases 1-19 verdes).
 - `src/core/saiki-core.ts` — emisión desde puntos reales.
 - `src/api/http-server.ts` — endpoint SSE.
 - `src/events/events.test.ts`, `src/api/sse.test.ts` — pruebas.
+
+## 11. Eventos de contexto de proyectos (Project Context, T6)
+
+Los escaneos del contexto se publican en un **stream por proyecto**, separado de
+las ejecuciones: cada evento lleva `projectId` (y no `executionId`) y su `seq` es
+propio del proyecto. Los eventos de ejecución no cambian.
+
+`GET /projects/:projectId/context/events`
+
+- 404 si el proyecto no existe; 501 si el servidor no tiene eventos.
+- Mismo protocolo que el de ejecuciones: historial posterior a `Last-Event-ID`
+  (header) o `?lastEventId=`, control `gap` si se pidió algo fuera de la
+  retención (1000 eventos por proyecto), heartbeat y `shutdown`.
+- No envía `end`: un proyecto puede volver a escanearse en cualquier momento.
+- Solo eventos reales del scheduler; no hay porcentajes inventados.
+
+| type | data |
+|------|------|
+| `context.scan.queued` | `{ scanId, mode, trigger }` (escaneo nuevo; una solicitud duplicada no emite nada) |
+| `context.scan.started` | `{ scanId, mode, trigger }` |
+| `context.scan.progress` | `{ scanId, mode, trigger, phase: "hashing", listed, toHash, hashed }`. El primero tras listar; después, como mucho uno cada 2 s. Sin hashes pendientes no se emite. |
+| `context.scan.completed` | `{ scanId, mode, trigger, snapshotId, stats }` |
+| `context.snapshot.published` | `{ snapshotId, scanId, createdAt }` (justo después de `completed`) |
+| `context.scan.failed` | `{ scanId, mode, trigger, error }` (error saneado; incluye tiempo agotado y proyecto no disponible al salir de la cola) |
+| `context.scan.interrupted` | `{ scanId, mode, trigger, error }` (al arrancar, para cada escaneo que el proceso anterior dejó a medias; le sigue el `queued` de la reanudación con `trigger: "restart"`) |
+| `context.freshness.changed` | `{ freshness: "ready"\|"stale", reason: "changes_detected"\|"project_unavailable"\|null, changedPaths, snapshotId }` |
+
+`context.freshness.changed` se emite cuando la frescura observada difiere de la
+última publicada para ese proyecto: al consultar `GET /projects/:id/context` y
+tras publicar un snapshot. La última publicada se lee del stream, así que un
+reinicio no la repite. No hay un vigilante del sistema de archivos: un cambio en
+el repositorio se detecta al consultar el estado.
+
+Orden de un escaneo: `queued → started → progress* → completed →
+snapshot.published` (o `failed`/`interrupted`), seguido, si cambia, de
+`freshness.changed`.
+
+```js
+const es = new EventSource(`/projects/${projectId}/context/events`);
+es.addEventListener("context.snapshot.published", (e) => recargarContexto(JSON.parse(e.data)));
+```
+
+### Conocimiento por proyecto (T10)
+
+`knowledge.proposed` y `knowledge.approved` de un documento de proyecto llevan
+`projectId` y se publican en el stream del proyecto
+(`GET /projects/:projectId/context/events`); los del conocimiento global siguen
+como antes, sin `projectId`.
+
+### Project Analyst (T11)
+
+En el stream del proyecto, con `projectId`:
+
+| Tipo | `data` |
+|---|---|
+| `project.analysis.started` | `{ analysisId, snapshotId }` |
+| `project.analysis.completed` | `{ analysisId, snapshotId, proposed: docId[], skipped }` (antes, un `knowledge.proposed` por versión creada) |
+| `project.analysis.failed` | `{ analysisId, snapshotId, error }` (error saneado: sin rutas absolutas ni secretos) |

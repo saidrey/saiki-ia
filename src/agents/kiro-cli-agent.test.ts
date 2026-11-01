@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { KiroCliAdapter } from "./kiro-cli-agent.js";
+import { DEFAULT_KIRO_TIMEOUT_MS, KIRO_TIMEOUT_ENV, KiroCliAdapter, resolveKiroTimeoutMs } from "./kiro-cli-agent.js";
 import type { ProcessResult, ProcessRunner } from "./process-runner.js";
 
 /**
@@ -123,5 +123,50 @@ describe("Fase 4: KiroCliAdapter (mapeo determinista con runner inyectable)", ()
     expect(capturedArgs).toContain("--trust-tools=");
     // El prompt (ultimo arg) incluye la tarea de entrada.
     expect(capturedArgs[capturedArgs.length - 1]).toContain("tarea X");
+  });
+});
+
+describe("SAIKI_KIRO_TIMEOUT_MS", () => {
+  it("sin definir o vacía: 60 000 ms predeterminados", () => {
+    expect(resolveKiroTimeoutMs({})).toEqual({ ok: true, timeoutMs: 60_000, source: "default" });
+    expect(resolveKiroTimeoutMs({ [KIRO_TIMEOUT_ENV]: "" })).toEqual({ ok: true, timeoutMs: 60_000, source: "default" });
+    expect(resolveKiroTimeoutMs({ [KIRO_TIMEOUT_ENV]: "  " })).toMatchObject({ ok: true, source: "default" });
+    expect(DEFAULT_KIRO_TIMEOUT_MS).toBe(60_000);
+  });
+
+  it("valor personalizado válido", () => {
+    expect(resolveKiroTimeoutMs({ [KIRO_TIMEOUT_ENV]: "180000" })).toEqual({ ok: true, timeoutMs: 180_000, source: "env" });
+    expect(resolveKiroTimeoutMs({ [KIRO_TIMEOUT_ENV]: " 300000 " })).toEqual({ ok: true, timeoutMs: 300_000, source: "env" });
+  });
+
+  it("valores inválidos: error explícito, sin caer al predeterminado", () => {
+    for (const v of ["abc", "0", "-5", "1.5", "1e3", "60s", "12 34", "2147483648", "99999999999999999999"]) {
+      const r = resolveKiroTimeoutMs({ [KIRO_TIMEOUT_ENV]: v });
+      expect(r.ok, v).toBe(false);
+      if (!r.ok) expect(r.message).toContain(KIRO_TIMEOUT_ENV);
+    }
+  });
+
+  it("el adaptador usa el timeout configurado y lo informa al expirar", async () => {
+    let received = 0;
+    const runner: ProcessRunner = async (req) => {
+      received = req.timeoutMs ?? 0;
+      return { stdout: "", stderr: "", exitCode: null, timedOut: true, truncated: false };
+    };
+    const r = resolveKiroTimeoutMs({ [KIRO_TIMEOUT_ENV]: "180000" });
+    if (!r.ok) throw new Error(r.message);
+    const result = await new KiroCliAdapter({ runner, timeoutMs: r.timeoutMs, trustTools: "fs_read" }).run({ role: "technicalAnalyst", input: "x" });
+    expect(received).toBe(180_000);
+    expect(result).toMatchObject({ status: "failure", error: "Kiro CLI excedio el timeout de 180000 ms." });
+  });
+
+  it("sin configuración, el adaptador mantiene 60 s", async () => {
+    let received = 0;
+    const runner: ProcessRunner = async (req) => {
+      received = req.timeoutMs ?? 0;
+      return { stdout: "ok", stderr: "", exitCode: 0, timedOut: false, truncated: false };
+    };
+    await new KiroCliAdapter({ runner }).run({ role: "analyze", input: "x" });
+    expect(received).toBe(60_000);
   });
 });

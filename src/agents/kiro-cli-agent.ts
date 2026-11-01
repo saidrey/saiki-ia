@@ -1,6 +1,8 @@
 import type { AgentAdapter, AgentRequest, AgentResult } from "./types.js";
 import {
+  resolveTimeoutEnv,
   spawnProcessRunner,
+  type TimeoutResolution,
   type ProcessRunner,
   type ProcessResult,
   workingDirectoryOf,
@@ -30,6 +32,19 @@ export interface KiroCliOptions {
 
 const DEFAULT_TIMEOUT_MS = 60_000;
 const DEFAULT_MAX_OUTPUT_BYTES = 1024 * 1024; // 1 MiB
+
+/** Variable de entorno con el timeout de cada llamada a Kiro CLI (ms). */
+export const KIRO_TIMEOUT_ENV = "SAIKI_KIRO_TIMEOUT_MS";
+export const DEFAULT_KIRO_TIMEOUT_MS = DEFAULT_TIMEOUT_MS;
+
+/**
+ * Timeout de Kiro desde el entorno. Sin definir (o vacía): 60 000 ms. Debe ser
+ * un entero positivo de milisegundos; cualquier otro valor es un error (no se
+ * sustituye en silencio por el predeterminado).
+ */
+export function resolveKiroTimeoutMs(env: Record<string, string | undefined> = process.env): TimeoutResolution {
+  return resolveTimeoutEnv(env, KIRO_TIMEOUT_ENV, DEFAULT_TIMEOUT_MS);
+}
 
 /**
  * Adaptador que conecta un rol con **Kiro CLI real** vía
