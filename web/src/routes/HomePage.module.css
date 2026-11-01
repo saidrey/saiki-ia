@@ -13,8 +13,23 @@
 }
 
 .heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   font-size: var(--text-lg);
-  font-weight: 600;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+/* Lo que espera a una persona lleva su luz violeta. */
+.attention .heading::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  transform: rotate(45deg);
+  background: var(--color-human);
+  box-shadow: 0 0 10px var(--color-human);
 }
 
 .text {

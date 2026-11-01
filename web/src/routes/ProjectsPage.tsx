@@ -1,9 +1,12 @@
 import { useId, useState, type FormEvent } from "react";
+import { Link } from "react-router";
 import { ApiError } from "../api/client";
 import type { ApplyMode, Project } from "../api/types";
 import { useProjectHistory, useProjects, useRegisterProject, useSetProjectActive, useUpdateProject } from "../hooks/useProjects";
 import { absoluteTime, relativeTime } from "../model/format";
 import { APPLY_MODE_HINT, APPLY_MODE_LABEL, fieldOfError, HEALTH_LABEL, historyText, type ProjectField } from "../model/projects";
+// Primero lo compartido: los estilos de la página pueden ajustarlo.
+import ui from "../styles/ui.module.css";
 import styles from "./Page.module.css";
 import own from "./ProjectsPage.module.css";
 
@@ -88,7 +91,8 @@ function RegisterForm() {
 
   return (
     <form className={own.panel} onSubmit={onSubmit} aria-labelledby={`${id}-title`} aria-busy={register.isPending}>
-      <h2 id={`${id}-title`} className={styles.heading}>
+      {/* El panel plegable ya lo titula a la vista; el nombre sigue para lectores de pantalla. */}
+      <h2 id={`${id}-title`} className="visually-hidden">
         Registrar un proyecto
       </h2>
       <div className={own.field}>
@@ -224,17 +228,20 @@ function ProjectItem({ project }: { project: Project }) {
     <li className={own.item} aria-labelledby={`${id}-name`}>
       <div className={own.itemHead}>
         <h3 id={`${id}-name`} className={own.itemName}>
-          {project.name}
+          <Link to={`/projects/${encodeURIComponent(project.id)}`}>{project.name}</Link>
         </h3>
         <span className={own.health} data-ok={healthy ? "" : undefined}>
           {HEALTH_LABEL[project.health]}
+        </span>
+        <span className={ui.chip} data-tone={project.applyMode === "real" ? "warning" : "trail"}>
+          {APPLY_MODE_LABEL[project.applyMode]}
         </span>
         {active ? null : <span className={own.inactive}>Desactivado</span>}
       </div>
       <p className={own.mono}>{project.rootPath}</p>
       {project.healthDetail ? <p className={own.fieldError}>{project.healthDetail}</p> : null}
       <p className={own.hint}>
-        Modo de aplicación: <span className={own.strong}>{APPLY_MODE_LABEL[project.applyMode]}</span>. Registrado{" "}
+        Registrado{" "}
         <time dateTime={project.createdAt} title={absoluteTime(project.createdAt)}>
           {relativeTime(project.createdAt)}
         </time>
@@ -333,15 +340,19 @@ export function ProjectsPage() {
 
   return (
     <div className={`${styles.page} ${own.page}`}>
-      <header className={own.header}>
-        <h1 className={styles.title}>Proyectos</h1>
-        <p className={styles.text}>
+      <header className={ui.hero}>
+        <h1 className={ui.heroTitle}>Proyectos</h1>
+        <p className={ui.heroText}>
           Repositorios de este equipo sobre los que Saiki-IA puede trabajar. Cada sesión de desarrollo pertenece a un proyecto y
           cada ejecución queda ligada al repositorio con el que empezó.
         </p>
       </header>
 
-      <RegisterForm />
+      {/* Plegado cuando ya hay proyectos: la lista es lo principal. */}
+      <details className={own.register} open={q.isSuccess && q.data.length === 0 ? true : undefined}>
+        <summary className={own.registerSummary}>Registrar un proyecto</summary>
+        <RegisterForm />
+      </details>
 
       {q.isPending ? (
         <p className={styles.text}>Cargando proyectos…</p>

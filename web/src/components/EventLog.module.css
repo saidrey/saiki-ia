@@ -122,7 +122,7 @@
   color: var(--state-running);
 }
 .row[data-tone="awaiting"] .type {
-  color: var(--state-awaiting);
+  color: var(--color-human-text);
 }
 .row[data-tone="failed"] .type {
   color: var(--state-failed-text);

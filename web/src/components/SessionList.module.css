@@ -2,27 +2,65 @@
   list-style: none;
   margin: 0;
   padding: 0;
-  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .item {
-  border-bottom: 1px solid var(--color-border);
+  min-width: 0;
 }
 
+/* Cada ejecución: fila de vidrio con una barra de luz según su estado real. */
 .link {
+  --light: var(--color-border);
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 180px 120px;
+  grid-template-columns: minmax(0, 1fr) 190px 120px;
   align-items: center;
   gap: var(--space-2) var(--space-6);
-  min-height: 56px;
-  padding: var(--space-3) var(--space-2);
+  min-height: 64px;
+  padding: var(--space-3) var(--space-4) var(--space-3) var(--space-6);
+  border: 1px solid var(--color-raised);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgb(30 41 59 / 0.42), rgb(17 24 39 / 0.55));
+  color: var(--color-text);
   text-decoration: none;
-  border-radius: var(--radius-control);
-  transition: background var(--duration-fast) var(--ease-out);
+  transition:
+    border-color var(--duration-base) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out),
+    transform var(--duration-base) var(--ease-out);
+}
+
+.link::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 14px;
+  bottom: 14px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--light);
+  box-shadow: 0 0 10px var(--light);
+}
+
+.item:has(.state[data-tone="awaiting"]) .link {
+  --light: var(--color-human);
+}
+.item:has(.state[data-tone="running"]) .link {
+  --light: var(--state-running);
+}
+.item:has(.state[data-tone="failed"]) .link {
+  --light: var(--state-failed);
+}
+.item:has(.state[data-tone="plain"]) .link {
+  --light: rgb(96 165 250 / 0.55);
 }
 
 .link:hover {
-  background: var(--color-surface);
+  border-color: color-mix(in srgb, var(--light) 50%, var(--color-raised));
+  box-shadow: 0 0 22px color-mix(in srgb, var(--light) 16%, transparent);
+  transform: translateY(-1px);
 }
 
 .main {
@@ -33,7 +71,7 @@
 }
 
 .title {
-  font-weight: 600;
+  font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -53,13 +91,13 @@
 }
 
 .state[data-tone="awaiting"] {
-  color: var(--state-awaiting);
+  color: var(--color-human-text);
 }
 .state[data-tone="failed"] {
   color: var(--state-failed-text);
 }
 .state[data-tone="running"] {
-  color: var(--state-running);
+  color: #7dd3fc;
 }
 
 .state::first-letter {
@@ -80,6 +118,15 @@
   font-size: var(--text-sm);
   color: var(--color-text-2);
   text-align: right;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .link {
+    transition: none;
+  }
+  .link:hover {
+    transform: none;
+  }
 }
 
 @media (max-width: 720px) {

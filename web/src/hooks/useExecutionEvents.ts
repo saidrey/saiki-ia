@@ -15,6 +15,8 @@ interface EventsState {
   entries: LogEntry[];
   connection: EventsConnection;
   announcement: string;
+  /** Eventos recibidos EN VIVO (no el historial reenviado): cada uno dispara un pulso en el pipeline. */
+  pulse: number;
 }
 
 /**
@@ -25,7 +27,7 @@ interface EventsState {
  */
 export function useExecutionEvents(executionId: string) {
   const queryClient = useQueryClient();
-  const [state, setState] = useState<EventsState>(() => ({ executionId, entries: [], connection: "connecting", announcement: "" }));
+  const [state, setState] = useState<EventsState>(() => ({ executionId, entries: [], connection: "connecting", announcement: "", pulse: 0 }));
 
   useEffect(() => {
     const openedAt = Date.now();
@@ -41,7 +43,7 @@ export function useExecutionEvents(executionId: string) {
         void queryClient.invalidateQueries({ queryKey: ["sessions"] });
       }, INVALIDATE_DEBOUNCE_MS);
     };
-    setState({ executionId, entries: [], connection: "connecting", announcement: "" });
+    setState({ executionId, entries: [], connection: "connecting", announcement: "", pulse: 0 });
 
     const disconnect = connectExecutionEvents(executionId, {
       onEvent: (ev) => {
@@ -51,6 +53,7 @@ export function useExecutionEvents(executionId: string) {
           ...s,
           entries: appendEntry(s.entries, entry),
           announcement: isLive && ANNOUNCED.has(ev.type) ? entry.text : s.announcement,
+          pulse: isLive ? s.pulse + 1 : s.pulse,
         }));
         invalidate();
       },
@@ -64,5 +67,5 @@ export function useExecutionEvents(executionId: string) {
   }, [executionId, queryClient]);
 
   // Mientras el efecto no ha reiniciado el estado para otra ejecución, no mostrar el de la anterior.
-  return state.executionId === executionId ? state : { executionId, entries: [], connection: "connecting" as const, announcement: "" };
+  return state.executionId === executionId ? state : { executionId, entries: [], connection: "connecting" as const, announcement: "", pulse: 0 };
 }

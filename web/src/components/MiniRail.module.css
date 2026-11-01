@@ -1,36 +1,44 @@
+/* El pipeline en miniatura: nueve luces con el mismo significado que en la ejecución. */
 .rail {
   display: flex;
-  gap: 3px;
+  align-items: center;
+  gap: 6px;
   width: 100%;
-  min-width: 120px;
+  min-width: 140px;
 }
 
 .segment {
-  flex: 1;
-  height: 8px;
-  border-radius: 2px;
-  background: var(--color-raised);
-  box-shadow: inset 0 0 0 1px var(--color-border);
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px dashed var(--state-skipped);
 }
 
 .segment[data-state="done"] {
-  background: var(--state-done);
-  box-shadow: none;
+  border: 0;
+  background: var(--color-trail-link);
+  box-shadow: 0 0 6px var(--glow-trail-link);
 }
 .segment[data-state="running"] {
+  border: 0;
   background: var(--state-running);
-  box-shadow: none;
+  box-shadow: 0 0 10px var(--state-running);
 }
+/* Espera a una persona: rombo violeta. */
 .segment[data-state="awaiting"] {
-  background: var(--state-awaiting);
-  box-shadow: none;
+  border: 0;
+  border-radius: 2px;
+  transform: rotate(45deg) scale(0.9);
+  background: var(--color-human);
+  box-shadow: 0 0 10px var(--color-human);
 }
 .segment[data-state="failed"] {
+  border: 0;
   background: var(--state-failed);
-  box-shadow: none;
+  box-shadow: 0 0 8px rgb(239 68 68 / 0.6);
 }
 .segment[data-state="skipped"],
 .segment[data-state="not_applicable"] {
-  background: transparent;
-  box-shadow: inset 0 0 0 1px var(--state-skipped);
+  border: 1.5px dotted var(--state-skipped);
 }

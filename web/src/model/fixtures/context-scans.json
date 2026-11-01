@@ -1,0 +1,49 @@
+{
+  "projectId": "prj-c5e13a55-2fa8-498a-a4fb-5bf90afe6409",
+  "scans": [
+    {
+      "id": "scan-29c7d262-d3e1-4957-9f3f-33245d24e906",
+      "projectId": "prj-c5e13a55-2fa8-498a-a4fb-5bf90afe6409",
+      "mode": "incremental",
+      "status": "completed",
+      "trigger": "manual",
+      "gitHead": null,
+      "createdAt": "2026-10-31T02:21:52.729Z",
+      "startedAt": "2026-10-31T02:21:52.786Z",
+      "finishedAt": "2026-10-31T02:21:52.819Z",
+      "stats": {
+        "listed": 10,
+        "hashed": 9,
+        "added": 1,
+        "modified": 1,
+        "deleted": 0,
+        "renamed": 0,
+        "skipped": 0,
+        "truncated": false
+      },
+      "error": null
+    },
+    {
+      "id": "scan-9042c91b-97cc-4ae2-894a-0bcda374f5f5",
+      "projectId": "prj-c5e13a55-2fa8-498a-a4fb-5bf90afe6409",
+      "mode": "full",
+      "status": "completed",
+      "trigger": "registered",
+      "gitHead": null,
+      "createdAt": "2026-10-31T02:21:50.958Z",
+      "startedAt": "2026-10-31T02:21:51.239Z",
+      "finishedAt": "2026-10-31T02:21:51.290Z",
+      "stats": {
+        "listed": 9,
+        "hashed": 8,
+        "added": 9,
+        "modified": 0,
+        "deleted": 0,
+        "renamed": 0,
+        "skipped": 0,
+        "truncated": false
+      },
+      "error": null
+    }
+  ]
+}

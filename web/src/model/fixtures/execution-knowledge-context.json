@@ -1,0 +1,13 @@
+{
+  "context": {
+    "executionId": "dev-c8ced4c5-3214-4cfc-897f-4250cf02a520",
+    "projectId": "prj-6fbc03fd-0e01-4d44-8357-d2f46483d3aa",
+    "huVersion": 1,
+    "snapshotId": "snap-54b73593-916e-40f2-a533-5599eb944962",
+    "builtAt": "2026-10-31T05:12:22.585Z",
+    "stale": false,
+    "staleReason": null,
+    "technicalBundle": "## Contexto del proyecto «shop»\nOrientativo: verifica en el código antes de afirmar algo. Cada sección indica su origen y nivel de confianza.\nSnapshot snap-54b73593-916e-40f2-a533-5599eb944962, 2 archivos indexados.\n### Stack [índice: generado del repositorio]\nLenguajes: typescript (1)\n- generic\n  Código en: src\n### Conocimiento aprobado [aprobado en Saiki por una persona]\n#### Importes en céntimos (convenciones, versión 1)\nLos importes se guardan como enteros en céntimos.\nNunca usar decimales para dinero.\n#### Capas de la API (arquitectura, versión 1)\nRutas → servicios → repositorios. Las rutas no acceden a la base de datos.\n### Archivos relevantes [índice: generado del repositorio]\nCoincidencias de la HU con rutas del índice. No se incluye su contenido: léelos con tus herramientas.\nMódulos relacionados: src/payments/ (1 archivos, 0 pruebas)\n- src/payments/refund.ts (código; coincide: payment, refund)\n### Documentación del repositorio [del repositorio, no aprobada en Saiki]\nOtros documentos: README.md\n",
+    "developerBundle": "## Contexto del proyecto «shop»\nOrientativo: verifica en el código antes de afirmar algo. Cada sección indica su origen y nivel de confianza.\nSnapshot snap-54b73593-916e-40f2-a533-5599eb944962, 2 archivos indexados.\n### Stack [índice: generado del repositorio]\nLenguajes: typescript (1)\n- generic\n  Código en: src\n### Conocimiento aprobado [aprobado en Saiki por una persona]\n#### Importes en céntimos (convenciones, versión 1)\nLos importes se guardan como enteros en céntimos.\nNunca usar decimales para dinero.\n#### Capas de la API (arquitectura, versión 1)\nRutas → servicios → repositorios. Las rutas no acceden a la base de datos.\nLos archivos a cambiar están en el análisis técnico. Puedes leer los archivos del repositorio con herramientas de solo lectura (Read, Glob, Grep); no puedes escribir ni ejecutar comandos. Si no puedes leer un archivo, dilo en openQuestions y no inventes su contenido.\n"
+  }
+}

@@ -14,7 +14,9 @@ const CONNECTION_LABEL: Record<EventsConnection, string> = {
 
 const timeFormat = new Intl.DateTimeFormat("es", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
-export function EventsStatus({ connection }: { connection: EventsConnection }) {
+/** `subject`: de qué es el stream (por defecto, una ejecución). */
+export function EventsStatus({ connection, subject = "ejecución" }: { connection: EventsConnection; subject?: "ejecución" | "proyecto" }) {
+  const label = connection === "not_found" ? `El servidor de eventos no conoce ${subject === "proyecto" ? "este proyecto" : "esta ejecución"}` : CONNECTION_LABEL[connection];
   return (
     <span className={styles.status} data-state={connection}>
       <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
@@ -26,7 +28,7 @@ export function EventsStatus({ connection }: { connection: EventsConnection }) {
           <circle cx="5" cy="5" r="3.5" />
         )}
       </svg>
-      Eventos: {CONNECTION_LABEL[connection]}
+      Eventos: {label}
     </span>
   );
 }

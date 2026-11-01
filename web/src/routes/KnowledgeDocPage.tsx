@@ -41,8 +41,26 @@ export function KnowledgeDocPage() {
         </div>
         <div>
           <dt>Estado</dt>
-          <dd>{labelOf(STATUS_LABEL, d.status)}</dd>
+          <dd>
+            <span className={own.status} data-status={d.status}>
+              {labelOf(STATUS_LABEL, d.status)}
+            </span>
+          </dd>
         </div>
+        {d.version !== undefined ? (
+          <div>
+            <dt>Versión</dt>
+            <dd>{d.version}</dd>
+          </div>
+        ) : null}
+        {d.projectId ? (
+          <div>
+            <dt>Proyecto</dt>
+            <dd>
+              <Link to={`/projects/${encodeURIComponent(d.projectId)}/knowledge`}>Conocimiento del proyecto</Link>
+            </dd>
+          </div>
+        ) : null}
         <div>
           <dt>Origen</dt>
           <dd>{d.origin}</dd>

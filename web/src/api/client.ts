@@ -1,4 +1,6 @@
 import type {
+  ProjectAnalysis,
+  ProjectAnalysisResponse,
   ApiErrorBody,
   ApprovalResponse,
   DecisionGateKind,
@@ -20,6 +22,17 @@ import type {
   ProjectHistoryResponse,
   ProjectResponse,
   ProjectsResponse,
+  ProjectContextResponse,
+  ContextScansResponse,
+  ContextScanResponse,
+  RequestScanResponse,
+  ContextFilesResponse,
+  ExecutionContextResponse,
+  FileKind,
+  ScanMode,
+  ProjectKnowledgeCategory,
+  KnowledgeVersionsResponse,
+  ProjectKnowledgeExportResponse,
 } from "./types";
 
 /**
@@ -128,6 +141,44 @@ export function createApiClient(baseUrl: string) {
       request<ProjectResponse>("PATCH", `/projects/${enc(projectId)}`, body),
     setProjectActive: (projectId: string, active: boolean) =>
       request<ProjectResponse>("POST", `/projects/${enc(projectId)}/${active ? "activate" : "deactivate"}`),
+    // ── Contexto de proyectos (solo REST; el backend escanea y construye) ──
+    getProjectContext: (projectId: string) => request<ProjectContextResponse>("GET", `/projects/${enc(projectId)}/context`),
+    /** Pide un escaneo; si ya hay uno en cola o en curso, el backend devuelve ese. */
+    requestScan: (projectId: string, mode: ScanMode) =>
+      request<RequestScanResponse>("POST", `/projects/${enc(projectId)}/context/scan`, { mode }),
+    listScans: (projectId: string, limit = 50) =>
+      request<ContextScansResponse>("GET", `/projects/${enc(projectId)}/context/scans?limit=${limit}`),
+    getScan: (projectId: string, scanId: string) =>
+      request<ContextScanResponse>("GET", `/projects/${enc(projectId)}/context/scans/${enc(scanId)}`),
+    /** Índice paginado por cursor; `prefix` filtra por inicio de ruta. */
+    listFiles: (projectId: string, q: { prefix?: string; kind?: FileKind; cursor?: string; limit?: number }) => {
+      const params = new URLSearchParams();
+      if (q.prefix) params.set("prefix", q.prefix);
+      if (q.kind) params.set("kind", q.kind);
+      if (q.cursor) params.set("cursor", q.cursor);
+      params.set("limit", String(q.limit ?? 100));
+      return request<ContextFilesResponse>("GET", `/projects/${enc(projectId)}/context/files?${params.toString()}`);
+    },
+    // ── (T10) Conocimiento por proyecto ──
+    /** Todas las versiones del proyecto (nunca mezcla conocimiento global). */
+    listProjectKnowledge: (projectId: string) => request<KnowledgeSearchResponse>("GET", `/knowledge?projectId=${enc(projectId)}`),
+    getKnowledgeVersions: (docId: string) => request<KnowledgeVersionsResponse>("GET", `/knowledge/${enc(docId)}/versions`),
+    proposeProjectKnowledge: (projectId: string, body: { category: ProjectKnowledgeCategory; title: string; content: string }) =>
+      request<KnowledgeDocResponse>("POST", `/projects/${enc(projectId)}/knowledge`, body),
+    /** Versión siguiente de la versión aprobada `docId` (que no cambia). */
+    proposeKnowledgeVersion: (docId: string, body: { title?: string; content?: string }) =>
+      request<KnowledgeDocResponse>("POST", `/knowledge/${enc(docId)}/versions`, body),
+    /** Aprueba o rechaza exactamente la versión revisada (reenvía su `versionHash`). Sin actorId. */
+    decideKnowledge: (docId: string, decision: "approve" | "reject", versionHash: string) =>
+      request<KnowledgeDocResponse>("POST", `/knowledge/${enc(docId)}/${decision}`, { versionHash }),
+    archiveKnowledge: (docId: string) => request<KnowledgeDocResponse>("POST", `/knowledge/${enc(docId)}/archive`),
+    exportProjectKnowledge: (projectId: string) =>
+      request<ProjectKnowledgeExportResponse>("GET", `/projects/${enc(projectId)}/knowledge/export`),
+    /** (T11) Lanza el Project Analyst: solo propone conocimiento (`proposed`). */
+    analyzeProject: (projectId: string) => request<{ analysis: ProjectAnalysis }>("POST", `/projects/${enc(projectId)}/analysis`),
+    getProjectAnalysis: (projectId: string) => request<ProjectAnalysisResponse>("GET", `/projects/${enc(projectId)}/analysis`),
+    /** Texto congelado que recibieron Kiro y Claude (nunca reconstruido). */
+    getExecutionContext: (executionId: string) => request<ExecutionContextResponse>("GET", `/executions/${enc(executionId)}/context`),
     resolveGate: (
       executionId: string,
       kind: DecisionGateKind,

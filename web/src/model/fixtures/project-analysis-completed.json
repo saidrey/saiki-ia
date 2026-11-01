@@ -1,0 +1,105 @@
+{
+  "projectId": "prj-b3eabc89-bd4a-4907-a4ba-fae6ed82fbd4",
+  "analysis": {
+    "id": "analysis-b9853f93-0e63-492c-9df3-4e483dfd6957",
+    "projectId": "prj-b3eabc89-bd4a-4907-a4ba-fae6ed82fbd4",
+    "status": "completed",
+    "snapshotId": "snap-7213603e-18c7-4421-a804-f327a08e6bde",
+    "actor": "local-human",
+    "startedAt": "2026-10-31T13:04:40.145Z",
+    "finishedAt": "2026-10-31T13:07:14.107Z",
+    "proposed": [
+      {
+        "docId": "kb-c6efca32-1f5c-4d0e-9d2a-97bb57591e10",
+        "documentId": "kb-c6efca32-1f5c-4d0e-9d2a-97bb57591e10",
+        "version": 1,
+        "title": "Arquitectura general: plantilla Fury Angular 16 adaptada a dominio de apuestas (surebets) + Firebase",
+        "category": "architecture",
+        "basedOn": null,
+        "citedFiles": [
+          "src/app/app.module.ts",
+          "src/app/app-routing.module.ts",
+          "src/app/core/core.module.ts",
+          "src/app/core/services/surebet.service.ts",
+          "src/app/core/repositories/surebet-api.repository.ts",
+          "src/app/core/repositories/surebet.repository.ts",
+          "src/app/pages/bets/surebet.component.ts",
+          "src/app/domain/repositories/user.repository.ts",
+          "src/app/application/services/user.service.ts",
+          "src/app/infrastructure/repositories/firebase-user.repository.ts"
+        ]
+      },
+      {
+        "docId": "kb-f33d7a19-749c-44ea-88ae-bc914ac5957c",
+        "documentId": "kb-f33d7a19-749c-44ea-88ae-bc914ac5957c",
+        "version": 1,
+        "title": "Autenticación, control de sesiones concurrentes y roles con Firebase",
+        "category": "architecture",
+        "basedOn": null,
+        "citedFiles": [
+          "src/app/services/auth.service.ts",
+          "src/app/services/auth.guard.ts",
+          "src/app/services/superadmin.guard.ts",
+          "src/app/core/services/user.service.ts",
+          "src/app/models/user.model.ts"
+        ]
+      },
+      {
+        "docId": "kb-61344d21-0042-4c24-8bf3-a0f2e360a833",
+        "documentId": "kb-61344d21-0042-4c24-8bf3-a0f2e360a833",
+        "version": 1,
+        "title": "Convenciones de desarrollo: feature modules lazy, patrón repositorio por token abstracto y estilo de código",
+        "category": "conventions",
+        "basedOn": null,
+        "citedFiles": [
+          "package.json",
+          "src/app/app-routing.module.ts",
+          "src/app/pages/bets/surebet.module.ts",
+          "src/app/pages/bets/surebet.component.ts",
+          "src/app/core/core.module.ts",
+          "src/app/core/repositories/surebet-api.repository.ts",
+          "src/app/core/constants/bookmakers.ts",
+          "src/app/core/constants/sport-icons.ts"
+        ]
+      },
+      {
+        "docId": "kb-f6eabdbb-b636-4e94-8a7d-5edeb8bcbd47",
+        "documentId": "kb-f6eabdbb-b636-4e94-8a7d-5edeb8bcbd47",
+        "version": 1,
+        "title": "Decisión: backend híbrido — surebets por API REST externa y usuarios/auth por Firebase, con repositorios intercambiables",
+        "category": "decisions",
+        "basedOn": null,
+        "citedFiles": [
+          "src/app/core/repositories/surebet-api.repository.ts",
+          "src/app/core/core.module.ts",
+          "src/app/core/repositories/user-api.repository.ts",
+          "src/app/core/repositories/user-firebase.repository.ts",
+          "src/app/core/services/user.service.ts",
+          "src/app/core/services/notification-sse.service.ts",
+          "src/app/app.module.ts"
+        ]
+      },
+      {
+        "docId": "kb-90ee967d-6ddd-4108-8130-1e76e08347a9",
+        "documentId": "kb-90ee967d-6ddd-4108-8130-1e76e08347a9",
+        "version": 1,
+        "title": "Deuda técnica visible: abstracciones de usuario duplicadas y divergentes entre domain/ y core/",
+        "category": "decisions",
+        "basedOn": null,
+        "citedFiles": [
+          "src/app/domain/repositories/user.repository.ts",
+          "src/app/domain/models/user.model.ts",
+          "src/app/infrastructure/repositories/firebase-user.repository.ts",
+          "src/app/core/repositories/user.repository.ts",
+          "src/app/models/user.model.ts",
+          "src/app/core/repositories/user-firebase.repository.ts",
+          "src/app/core/repositories/user-api.repository.ts",
+          "src/app/app.module.ts",
+          "src/app/core/core.module.ts"
+        ]
+      }
+    ],
+    "skipped": [],
+    "error": null
+  }
+}

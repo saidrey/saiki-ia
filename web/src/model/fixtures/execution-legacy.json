@@ -1,0 +1,100 @@
+{
+  "execution": {
+    "executionId": "dev-06700ead-ffa4-4e90-8d96-4edc9b841971",
+    "sessionId": "s-legacy",
+    "request": "implementa esto [P:P]",
+    "category": "development",
+    "status": "esperando decisión humana: aprobación final de la propuesta (reviews_passed)",
+    "phase": "reviews_passed",
+    "currentStage": "final_approval",
+    "stages": [
+      {
+        "id": "hu_analysis",
+        "label": "Análisis de HU",
+        "status": "done",
+        "detail": "Pantalla de perfil [P:P]"
+      },
+      {
+        "id": "technical_analysis",
+        "label": "Análisis técnico",
+        "status": "done",
+        "detail": "análisis [P:P]"
+      },
+      {
+        "id": "feasibility",
+        "label": "Clasificación de viabilidad",
+        "status": "done",
+        "detail": "ready"
+      },
+      {
+        "id": "development",
+        "label": "Desarrollo (propuesta)",
+        "status": "done",
+        "detail": "crear src/gen.ts [P:P]"
+      },
+      {
+        "id": "functional_review",
+        "label": "Revisión funcional",
+        "status": "done",
+        "detail": "ok"
+      },
+      {
+        "id": "quality_review",
+        "label": "Revisión de calidad",
+        "status": "done",
+        "detail": "ok"
+      },
+      {
+        "id": "final_approval",
+        "label": "Aprobación humana final",
+        "status": "running"
+      },
+      {
+        "id": "apply",
+        "label": "Aplicación segura",
+        "status": "pending"
+      },
+      {
+        "id": "verify",
+        "label": "Verificación posterior",
+        "status": "pending"
+      }
+    ],
+    "runtime": "unavailable",
+    "errors": [],
+    "retries": 0,
+    "pendingApproval": {
+      "required": true,
+      "kind": "final_approval",
+      "proposalHash": "aa34f1f4b27621887cd521f035df6da8eea00590c4a955c3aadc8645f3d71ceb",
+      "decisionHash": "aa34f1f4b27621887cd521f035df6da8eea00590c4a955c3aadc8645f3d71ceb"
+    },
+    "finalResult": {
+      "available": "not_applicable"
+    },
+    "lifecycle": "awaiting_decision",
+    "activity": {
+      "active": false
+    },
+    "activeStage": "none",
+    "awaitingDecision": {
+      "kind": "final_approval",
+      "stageId": "final_approval"
+    },
+    "project": {
+      "id": "prj-04453b28-3eb2-4743-8265-801e0c331a82",
+      "name": "legacy",
+      "rootPath": "/repos/legacy",
+      "applyMode": "sandbox",
+      "boundAt": "2026-10-31T02:21:50.801Z",
+      "current": {
+        "name": "legacy",
+        "status": "active",
+        "applyMode": "sandbox",
+        "health": "ok"
+      }
+    },
+    "applyTarget": null,
+    "context": null
+  }
+}

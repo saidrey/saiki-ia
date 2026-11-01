@@ -1,0 +1,193 @@
+/* Contexto congelado de una ejecución (T9). */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-4) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+  min-width: 0;
+}
+
+.title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.hint {
+  font-size: var(--text-sm);
+  color: var(--color-text-2);
+}
+
+.error {
+  font-size: var(--text-sm);
+  color: var(--state-failed-text);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.notice {
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--state-awaiting);
+  border-radius: var(--radius-control);
+  background: var(--color-ground);
+  font-size: var(--text-sm);
+}
+
+.notice[data-tone="failed"] {
+  border-left-color: var(--state-failed);
+}
+
+.facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: minmax(10rem, max-content) 1fr;
+  gap: var(--space-2) var(--space-6);
+  font-size: var(--text-sm);
+}
+
+.facts dt {
+  color: var(--color-text-2);
+}
+
+.facts dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.disclosure > summary {
+  cursor: pointer;
+  display: list-item;
+  padding: var(--space-3) 0;
+  font-weight: 600;
+}
+
+.disclosure[open] > summary {
+  margin-bottom: var(--space-2);
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-ground);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.caption {
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  color: var(--color-text-2);
+}
+
+.table th,
+.table td {
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  vertical-align: top;
+  border-top: 1px solid var(--color-border);
+}
+
+.table thead th {
+  color: var(--color-text-2);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.table tbody th {
+  font-weight: 400;
+}
+
+/* Sección que Claude no recibió: texto atenuado y cursiva (no solo color). */
+.table td[data-missing] {
+  color: var(--color-text-2);
+  font-style: italic;
+}
+
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.table .num {
+  text-align: right;
+}
+
+.bundles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--color-border);
+  overflow-x: auto;
+}
+
+.tab {
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background: transparent;
+  color: var(--color-text-2);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tab:hover {
+  color: var(--color-text);
+}
+
+.tab[aria-selected="true"] {
+  color: var(--color-text);
+  font-weight: 600;
+  border-bottom-color: var(--color-primary);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* Texto exacto: preformateado, sin reflujo que lo altere; desplazable. */
+.pre {
+  margin: 0;
+  max-height: 32rem;
+  overflow: auto;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-ground);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .facts {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .facts dd {
+    margin-bottom: var(--space-2);
+  }
+}

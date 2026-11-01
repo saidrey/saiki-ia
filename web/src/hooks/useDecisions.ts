@@ -22,6 +22,8 @@ export function useApproval(executionId: string, enabled: boolean) {
     queryKey: ["approval", executionId],
     queryFn: () => api.getApproval(executionId),
     enabled,
+    // Al abrir el diálogo siempre se pide de nuevo: lo de la caché puede ser la decisión anterior.
+    staleTime: 0,
   });
 }
 

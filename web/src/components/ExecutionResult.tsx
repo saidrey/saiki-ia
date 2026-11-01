@@ -73,55 +73,64 @@ export function ExecutionResult({ view }: { view: ExecutionView }) {
         </div>
       </header>
 
-      <div className={styles.grid}>
-        <section aria-labelledby="res-apply">
-          <h3 id="res-apply" className={styles.heading}>
-            Aplicación y verificación
-          </h3>
-          <dl className={styles.fields}>
-            {[apply, verify].map((s) =>
-              s ? (
-                <div key={s.id}>
-                  <dt>{s.label}</dt>
-                  <dd>
-                    {stateLabel(stationState(s, view), view)}
-                    {s.detail ? <span className={styles.muted}> ({s.detail})</span> : null}
-                  </dd>
-                </div>
-              ) : null,
-            )}
-            {view.applyTarget ? (
-              <div>
-                <dt>Aplicado en</dt>
-                <dd>
-                  {view.project && view.applyTarget === view.project.rootPath ? "Repositorio real" : "Sandbox de esta ejecución"}{" "}
-                  <span className={styles.path}>{view.applyTarget}</span>
-                </dd>
-              </div>
-            ) : null}
-            <div>
-              <dt>Ciclos de corrección</dt>
-              <dd>{view.retries}</dd>
-            </div>
-          </dl>
-        </section>
+      {/* Datos cortos como indicadores; las revisiones, que son texto largo, a ancho completo. */}
+      <ul className={styles.indicators} aria-label="Aplicación y verificación">
+        {[apply, verify].map((s) =>
+          s ? (
+            <li key={s.id} className={styles.indicator} data-state={stationState(s, view)}>
+              <span className={styles.indicatorLabel}>{s.label}</span>
+              <span className={styles.indicatorValue}>
+                <StageMark state={stationState(s, view)} size={14} />
+                {stateLabel(stationState(s, view), view)}
+              </span>
+            </li>
+          ) : null,
+        )}
+        {view.applyTarget ? (
+          <li className={styles.indicator}>
+            <span className={styles.indicatorLabel}>Aplicado en</span>
+            <span className={styles.indicatorValue}>
+              {view.project && view.applyTarget === view.project.rootPath ? "Repositorio real" : "Sandbox de esta ejecución"}
+            </span>
+          </li>
+        ) : null}
+        <li className={styles.indicator}>
+          <span className={styles.indicatorLabel}>Ciclos de corrección</span>
+          <span className={styles.indicatorValue}>{view.retries}</span>
+        </li>
+      </ul>
+      {[apply, verify].some((s) => s?.detail) || view.applyTarget ? (
+        <div className={styles.indicatorNotes}>
+          {[apply, verify].map((s) =>
+            s?.detail ? (
+              <p key={s.id} className={styles.muted}>
+                {s.label}: {withPeriod(s.detail)}
+              </p>
+            ) : null,
+          )}
+          {view.applyTarget ? <p className={styles.path}>{view.applyTarget}</p> : null}
+        </div>
+      ) : null}
 
-        <section aria-labelledby="res-reviews">
-          <h3 id="res-reviews" className={styles.heading}>
-            Revisiones
-          </h3>
-          <ul className={styles.plain}>
-            {reviews.map((r) => (
-              <li key={r.id}>
-                <span className={styles.reviewHead}>
-                  {r.label}: {stateLabel(stationState(r, view), view)}
+      <section aria-labelledby="res-reviews">
+        <h3 id="res-reviews" className={styles.heading}>
+          Revisiones
+        </h3>
+        <ul className={styles.reviews}>
+          {reviews.map((r) => (
+            <li key={r.id} className={styles.review}>
+              <span className={styles.reviewHead}>
+                <span className={styles.reviewName}>{r.label}</span>
+                <span className={styles.verdict} data-state={stationState(r, view)}>
+                  <StageMark state={stationState(r, view)} size={12} />
+                  {stateLabel(stationState(r, view), view)}
                 </span>
-                <span className={styles.prose}>{r.detail ?? "Sin resumen registrado por el backend."}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      </div>
+              </span>
+              <span className={styles.prose}>{r.detail ?? "Sin resumen registrado por el backend."}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <section aria-labelledby="res-decisions">
         <h3 id="res-decisions" className={styles.heading}>

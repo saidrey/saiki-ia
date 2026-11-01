@@ -1,0 +1,590 @@
+/* Detalle de proyecto y su contexto (T9). Mismos tokens y piezas que Proyectos. */
+.page {
+  max-width: 1200px;
+}
+
+.back {
+  font-size: var(--text-sm);
+  color: var(--color-text-2);
+}
+
+/* Cabecera del proyecto: panel de vidrio con luz ambiental. */
+.header {
+  composes: panel from "../styles/ui.module.css";
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-6);
+}
+
+.header::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -60% 45% 30% -15%;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 30% 40%, rgb(37 99 235 / 0.2), transparent 65%);
+}
+
+.header h1 {
+  font-size: 1.875rem;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+}
+
+.titleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-6);
+}
+
+.titleGroup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
+  min-width: 0;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.primary {
+  composes: primary from "../styles/ui.module.css";
+}
+
+.secondary {
+  composes: secondary from "../styles/ui.module.css";
+}
+
+.meta {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-6);
+  font-size: var(--text-sm);
+}
+
+.meta div {
+  display: flex;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.meta dt {
+  color: var(--color-text-2);
+}
+
+.meta dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-2);
+  overflow-wrap: anywhere;
+}
+
+.hint {
+  font-size: var(--text-sm);
+  color: var(--color-text-2);
+}
+
+.error {
+  font-size: var(--text-sm);
+  color: var(--state-failed-text);
+}
+
+/*
+ * Estado del contexto y de los escaneos: forma + etiqueta, nunca solo color.
+ * círculo lleno = al día / completado; anillo = en cola o en curso;
+ * rombo = desactualizado o interrumpido; cuadrado = fallido; anillo discontinuo = sin escanear.
+ */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 2px var(--space-3);
+  border-radius: 999px;
+  border: 1px solid rgb(34 197 94 / 0.35);
+  background: rgb(34 197 94 / 0.08);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.status::before {
+  content: "";
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--state-done);
+  box-shadow: 0 0 8px rgb(34 197 94 / 0.7);
+}
+
+.status[data-status="scanning"],
+.status[data-status="queued"],
+.status[data-status="running"] {
+  border-color: rgb(56 189 248 / 0.45);
+  background: rgb(56 189 248 / 0.1);
+}
+
+.status[data-status="scanning"]::before,
+.status[data-status="queued"]::before,
+.status[data-status="running"]::before {
+  background: transparent;
+  border: 2px solid var(--state-running);
+  box-shadow: 0 0 8px var(--state-running);
+}
+
+.status[data-status="stale"],
+.status[data-status="interrupted"] {
+  border-color: rgb(245 158 11 / 0.5);
+  background: var(--state-awaiting-surface);
+}
+
+.status[data-status="stale"]::before,
+.status[data-status="interrupted"]::before {
+  border-radius: 1px;
+  transform: rotate(45deg) scale(0.85);
+  background: var(--state-awaiting);
+  box-shadow: 0 0 8px rgb(245 158 11 / 0.6);
+}
+
+/* Conocimiento pendiente de decisión: espera a una persona (violeta). */
+.status[data-status="awaiting"] {
+  border-color: rgb(167 139 250 / 0.5);
+  background: var(--color-human-surface);
+  color: var(--color-human-text);
+}
+
+.status[data-status="awaiting"]::before {
+  border-radius: 1px;
+  transform: rotate(45deg) scale(0.85);
+  background: var(--color-human);
+  box-shadow: 0 0 8px var(--color-human);
+}
+
+.status[data-status="failed"] {
+  border-color: rgb(239 68 68 / 0.5);
+  background: rgb(239 68 68 / 0.1);
+  color: var(--state-failed-text);
+}
+
+.status[data-status="failed"]::before {
+  border-radius: 1px;
+  background: var(--state-failed);
+  box-shadow: 0 0 8px rgb(239 68 68 / 0.6);
+}
+
+.status[data-status="none"],
+.status[data-status="completed"] {
+  border-color: var(--color-border);
+  background: transparent;
+}
+
+.status[data-status="none"]::before {
+  background: transparent;
+  border: 2px dashed var(--state-pending);
+  box-shadow: none;
+}
+
+/* Navegación entre resumen, archivos y escaneos. */
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--color-raised);
+  overflow-x: auto;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  color: var(--color-text-2);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  white-space: nowrap;
+}
+
+.tab:hover {
+  color: var(--color-text);
+}
+
+.tab[aria-current="page"] {
+  color: var(--color-text);
+  font-weight: 500;
+  border-bottom-color: var(--state-running);
+  background: linear-gradient(180deg, transparent 40%, rgb(56 189 248 / 0.08));
+  box-shadow: 0 6px 12px -8px rgb(56 189 248 / 0.7);
+}
+
+/* Aviso en línea, como en Page.module.css. */
+.notice {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid rgb(245 158 11 / 0.45);
+  border-radius: 12px;
+  background: var(--state-awaiting-surface);
+  font-size: var(--text-sm);
+}
+
+.notice[data-tone="failed"] {
+  border-color: rgb(239 68 68 / 0.5);
+  background: rgb(239 68 68 / 0.08);
+}
+
+/* Escaneo activo: cifras reales del backend; sin barra si no hay progreso publicado. */
+.activeScan {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid rgb(56 189 248 / 0.4);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgb(56 189 248 / 0.08), rgb(17 24 39 / 0.6));
+  box-shadow: 0 0 24px rgb(56 189 248 / 0.1);
+  font-size: var(--text-sm);
+}
+
+.activeHead {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  align-items: baseline;
+}
+
+.meter {
+  width: 100%;
+  max-width: 480px;
+  height: 6px;
+  appearance: none;
+  border: 0;
+  border-radius: 3px;
+  background: var(--color-raised);
+  overflow: hidden;
+}
+
+.meter::-webkit-progress-bar {
+  background: var(--color-raised);
+}
+
+.meter::-webkit-progress-value {
+  background: linear-gradient(90deg, var(--color-trail), var(--state-running));
+  box-shadow: 0 0 8px var(--state-running);
+}
+
+.meter::-moz-progress-bar {
+  background: linear-gradient(90deg, var(--color-trail), var(--state-running));
+}
+
+/* Contenido de cada pestaña. */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.sectionTitle {
+  font-size: var(--text-lg);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.subTitle {
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+/* Ecosistemas: una columna de términos a la izquierda, valores a la derecha. */
+.facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: minmax(9rem, max-content) 1fr;
+  gap: var(--space-2) var(--space-6);
+  font-size: var(--text-sm);
+}
+
+.facts dt {
+  color: var(--color-text-2);
+}
+
+.facts dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ecosystem {
+  composes: panel from "../styles/ui.module.css";
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
+}
+
+.inlineList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Tablas densas; la región se desplaza en horizontal en pantallas estrechas. */
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-raised);
+  border-radius: 12px;
+  background: rgb(8 13 24 / 0.45);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.table th,
+.table td {
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid rgb(51 65 85 / 0.6);
+}
+
+.table thead th {
+  color: var(--color-text-2);
+  font-weight: 500;
+  /* Sólido (no degradado): el contraste del texto se mide sin ambigüedad. */
+  background: #1a2333;
+  white-space: nowrap;
+}
+
+.table tbody tr:hover {
+  background: rgb(30 41 59 / 0.35);
+}
+
+.table tbody tr:last-child td,
+.table tbody tr:last-child th {
+  border-bottom: 0;
+}
+
+.table tbody th {
+  font-weight: 400;
+}
+
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.table .num {
+  text-align: right;
+}
+
+details.disclosure > summary {
+  cursor: pointer;
+  display: list-item;
+  padding: var(--space-3) 0;
+  font-weight: 600;
+}
+
+/* Filtros del explorador. */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-4);
+  align-items: flex-end;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.field label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.input,
+.select {
+  composes: field from "../styles/ui.module.css";
+}
+
+.input {
+  width: min(28rem, 100%);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+/* Cambios de un escaneo. */
+.changes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--space-4) var(--space-6);
+}
+
+.changeList {
+  max-height: 22rem;
+  overflow-y: auto;
+}
+
+.inlineColumn {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+@media (max-width: 640px) {
+  .tab {
+    padding: 0 var(--space-3);
+  }
+
+  .facts {
+    grid-template-columns: 1fr;
+    gap: 0 var(--space-4);
+  }
+
+  .facts dd {
+    margin-bottom: var(--space-2);
+  }
+}
+
+/* (T10) Conocimiento del proyecto. */
+.strong {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.textInput,
+.textarea {
+  composes: field from "../styles/ui.module.css";
+  width: 100%;
+  max-width: 72ch;
+}
+
+.textarea {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.knowledgeForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-raised);
+  border-radius: 12px;
+  background: rgb(8 13 24 / 0.5);
+}
+
+.knowledgeList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.knowledgeItem {
+  composes: panel from "../styles/ui.module.css";
+  overflow: hidden;
+}
+
+.knowledgeItem:has(details[open]) {
+  border-color: rgb(96 165 250 / 0.3);
+}
+
+.knowledgeSummary {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.knowledgeSummary::-webkit-details-marker {
+  display: none;
+}
+
+/* Indicador de desplegable (el marcador nativo se pierde con display: flex). */
+.knowledgeSummary::before {
+  content: "▸";
+  color: var(--color-text-2);
+}
+
+details[open] > .knowledgeSummary::before {
+  content: "▾";
+}
+
+.version h3 {
+  margin: 0;
+}
+
+.knowledgeBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: 0 var(--space-4) var(--space-4);
+}
+
+/* Una versión: la pendiente espera a una persona (violeta); la oficial, azul de recorrido. */
+.version {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid rgb(96 165 250 / 0.3);
+  border-radius: 12px;
+  background: rgb(8 13 24 / 0.5);
+}
+
+.version[data-pending] {
+  border-color: rgb(167 139 250 / 0.55);
+  background: #130f26;
+  box-shadow: 0 0 22px rgb(167 139 250 / 0.12);
+}
+
+.docContent {
+  max-width: 80ch;
+  white-space: pre-wrap;
+  /* Markdown en crudo: en monoespaciada las rutas `así` se leen mejor. */
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+  font-size: var(--text-sm);
+}

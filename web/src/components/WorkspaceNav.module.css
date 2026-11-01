@@ -1,0 +1,250 @@
+.nav {
+  position: sticky;
+  top: 0;
+  /* Por encima de la luz ambiental de las cabeceras de página. */
+  z-index: 2;
+  align-self: flex-start;
+  flex: 0 0 256px;
+  width: 256px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-4) var(--space-3);
+  /* Luz ambiental arriba (marca) y degradado hacia el fondo de la app. */
+  background:
+    radial-gradient(ellipse 120% 40% at 0% 0%, rgb(37 99 235 / 0.16), transparent 60%),
+    linear-gradient(180deg, #0d1729 0%, var(--color-nav) 45%, var(--color-ground) 100%);
+  border-right: 1px solid var(--color-raised);
+  box-shadow: inset -1px 0 0 rgb(56 189 248 / 0.08);
+  transition: width var(--duration-base) var(--ease-out), flex-basis var(--duration-base) var(--ease-out);
+}
+
+.nav[data-collapsed] {
+  flex-basis: 68px;
+  width: 68px;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.nav[data-collapsed] .top {
+  flex-direction: column;
+}
+
+.brand {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 60px;
+  padding: 0 var(--space-1);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+/* Logo y nombre ocupan el ancho disponible junto al botón de plegar. */
+.brandLogo {
+  flex: none;
+  width: auto;
+  height: 50px;
+  filter: drop-shadow(0 0 10px rgb(56 189 248 / 0.35));
+}
+
+.brandText {
+  min-width: 0;
+  font-size: 1.625rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* «IA» en azul claro: 6,5:1 sobre el fondo de la barra (el azul de acción no llega a 4,5:1). */
+.brandAccent {
+  color: var(--color-trail-link);
+}
+
+.nav[data-collapsed] .brandText {
+  display: none;
+}
+
+/* Plegada: solo el logo, ajustado al ancho de la barra. */
+.nav[data-collapsed] .brand {
+  flex: none;
+  justify-content: center;
+  padding: 0;
+}
+
+.nav[data-collapsed] .brandLogo {
+  width: 44px;
+  height: auto;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--color-text-2);
+  cursor: pointer;
+}
+
+.toggle:hover {
+  color: var(--color-text);
+  border-color: var(--color-border);
+  background: var(--color-surface);
+}
+
+.icon {
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.links {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border-radius: 8px;
+  color: var(--color-text-2);
+  text-decoration: none;
+}
+
+.link:hover {
+  color: var(--color-text);
+  background: rgb(30 41 59 / 0.55);
+}
+
+/* Sección actual: barra y fondo iluminados en cian (luz = aquí estás). */
+.active {
+  color: var(--color-text);
+  background: linear-gradient(90deg, rgb(56 189 248 / 0.16), rgb(37 99 235 / 0.06) 65%, transparent);
+  box-shadow:
+    inset 2px 0 0 var(--state-running),
+    inset 0 0 0 1px rgb(56 189 248 / 0.12);
+}
+
+.active .icon {
+  color: var(--state-running);
+  filter: drop-shadow(0 0 5px rgb(56 189 248 / 0.6));
+}
+
+.nav[data-collapsed] .link {
+  justify-content: center;
+  padding: 0;
+}
+
+/* Plegada: solo iconos; el nombre sigue disponible para lectores de pantalla. */
+.nav[data-collapsed] .linkText {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.recent {
+  flex: 1;
+  border-top: 1px solid var(--color-raised);
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0 calc(-1 * var(--space-1));
+  padding: var(--space-4) var(--space-1) 0;
+}
+
+.nav[data-collapsed] .recent {
+  display: none;
+}
+
+.status {
+  padding: 0 var(--space-3);
+}
+
+/* Plegada: solo la forma del indicador (el texto sigue en el árbol accesible). */
+.nav[data-collapsed] .status {
+  display: flex;
+  justify-content: center;
+  padding: 0;
+}
+.nav[data-collapsed] .status > span {
+  font-size: 0;
+  gap: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav {
+    transition: none;
+  }
+}
+
+/* ── Estrecho: barra superior que se despliega ── */
+@media (max-width: 860px) {
+  .nav,
+  .nav[data-collapsed] {
+    position: static;
+    flex-basis: auto;
+    width: 100%;
+    height: auto;
+    gap: var(--space-4);
+    padding: var(--space-2) var(--space-4);
+    border-right: 0;
+    border-bottom: 1px solid var(--color-raised);
+  }
+
+  .nav[data-collapsed] .top {
+    flex-direction: row;
+  }
+
+  .nav[data-collapsed] .brandText {
+    display: inline;
+  }
+
+  .nav[data-collapsed] .brand {
+    flex: 1;
+    justify-content: flex-start;
+  }
+
+  .brandLogo,
+  .nav[data-collapsed] .brandLogo {
+    width: auto;
+    height: 40px;
+  }
+
+  .nav[data-collapsed] .panel {
+    display: none;
+  }
+
+  .recent {
+    max-height: 40vh;
+  }
+}

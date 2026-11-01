@@ -9,21 +9,25 @@
   list-style: none;
   margin: 0;
   padding: 0;
-  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .execItem {
+  composes: panel from "../styles/ui.module.css";
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
   gap: var(--space-1) var(--space-4);
-  padding: var(--space-3) var(--space-2);
-  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-3) var(--space-4);
+  border-radius: 12px;
   text-decoration: none;
+  transition: border-color var(--duration-base) var(--ease-out);
 }
 
 .execItem:hover {
-  background: var(--color-surface);
+  border-color: rgb(96 165 250 / 0.45);
 }
 
 .execLink {
@@ -31,8 +35,8 @@
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  font-weight: 600;
-  color: var(--state-running);
+  font-weight: 500;
+  color: #7dd3fc;
 }
 
 .section {
@@ -53,13 +57,20 @@
 }
 
 .turn {
+  max-width: 85%;
   padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-panel);
-  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  border: 1px solid var(--color-raised);
+  background: linear-gradient(180deg, rgb(30 41 59 / 0.5), rgb(17 24 39 / 0.6));
+  box-shadow: inset 2px 0 0 rgb(56 189 248 / 0.55);
 }
 
+/* Tus mensajes, a la derecha y en azul de acción; los de Saiki-IA, a la izquierda con filo cian. */
 .turn[data-role="user"] {
-  background: var(--color-surface);
+  align-self: flex-end;
+  border-color: rgb(37 99 235 / 0.4);
+  background: linear-gradient(180deg, rgb(37 99 235 / 0.2), rgb(37 99 235 / 0.1));
+  box-shadow: none;
 }
 
 .who {
@@ -81,13 +92,12 @@
 }
 
 .task {
+  composes: panel from "../styles/ui.module.css";
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-panel);
-  background: var(--color-surface);
+  padding: var(--space-4);
+  border-radius: 12px;
 }
 
 .taskHead {

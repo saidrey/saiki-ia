@@ -1,7 +1,8 @@
-import { EXECUTION_EVENT_TYPES, type ControlEventData, type SaikiEvent } from "./types";
+import { CONTEXT_EVENT_TYPES, EXECUTION_EVENT_TYPES, PROJECT_ANALYSIS_EVENT_TYPES, type ControlEventData, type SaikiEvent, type SaikiEventType } from "./types";
 
 /**
- * Conexión SSE a `GET /executions/:id/events` (a través del proxy `/api`).
+ * Conexión SSE a `GET /executions/:id/events` o `GET /projects/:id/context/events`
+ * (a través del proxy `/api`). Mismo protocolo en ambos streams.
  *
  * - Cortes de red con el servidor vivo: `EventSource` reconecta solo y reenvía
  *   `Last-Event-ID`; el servidor manda solo lo posterior.
@@ -27,7 +28,18 @@ export interface EventsHandlers {
 const RETRY_MS = [1_000, 2_000, 5_000, 10_000];
 
 export function connectExecutionEvents(executionId: string, h: EventsHandlers): () => void {
-  const url = `/api/executions/${encodeURIComponent(executionId)}/events`;
+  return connectEvents(`/api/executions/${encodeURIComponent(executionId)}/events`, EXECUTION_EVENT_TYPES, h);
+}
+
+/** (T10/T11) El stream del proyecto también lleva su conocimiento y el análisis del Project Analyst. */
+const PROJECT_STREAM_TYPES: readonly SaikiEventType[] = [...CONTEXT_EVENT_TYPES, "knowledge.proposed", "knowledge.approved", ...PROJECT_ANALYSIS_EVENT_TYPES];
+
+/** Stream del contexto de un proyecto. No envía `end`: un proyecto puede volver a escanearse. */
+export function connectProjectContextEvents(projectId: string, h: EventsHandlers): () => void {
+  return connectEvents(`/api/projects/${encodeURIComponent(projectId)}/context/events`, PROJECT_STREAM_TYPES, h);
+}
+
+function connectEvents(url: string, types: readonly SaikiEventType[], h: EventsHandlers): () => void {
   let source: EventSource | null = null;
   let lastSeq = 0;
   let attempt = 0;
@@ -50,7 +62,7 @@ export function connectExecutionEvents(executionId: string, h: EventsHandlers): 
       attempt = 0;
       h.onConnection("open");
     };
-    for (const type of EXECUTION_EVENT_TYPES) {
+    for (const type of types) {
       source.addEventListener(type, (e) => {
         const ev = parse((e as MessageEvent<string>).data) as SaikiEvent | undefined;
         if (ev === undefined) return;

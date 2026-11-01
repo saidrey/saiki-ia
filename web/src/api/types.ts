@@ -165,6 +165,8 @@ export interface ExecutionView {
   project?: ExecutionProject | null;
   /** Directorio donde se aplicó (repo real o sandbox de la ejecución), si ya se aplicó. */
   applyTarget?: string | null;
+  /** (Project Context, T8) Contexto congelado que recibió (última versión de la HU). null = no recibió contexto. */
+  context?: ExecutionContextSummary | null;
 }
 
 export interface ExecutionProject {
@@ -235,7 +237,10 @@ export type SaikiEventType =
   | "approval.required"
   | "approval.resolved"
   | "assistant.message"
-  | "knowledge.proposed";
+  | "knowledge.proposed"
+  | "knowledge.approved"
+  | ContextEventType
+  | ProjectAnalysisEventType;
 
 export const EXECUTION_EVENT_TYPES: readonly SaikiEventType[] = [
   "execution.started",
@@ -278,6 +283,8 @@ export interface SaikiEvent {
   type: SaikiEventType;
   executionId?: string;
   sessionId?: string;
+  /** Eventos de contexto: proyecto del stream (sin executionId). */
+  projectId?: string;
   timestamp: string;
   seq?: number;
   data: ExecutionEventData | StageEventData | ApprovalRequiredData | ApprovalResolvedData | Record<string, unknown>;
@@ -396,7 +403,52 @@ export interface KnowledgeDoc {
   createdAt: string;
   updatedAt: string;
   supersededBy?: string;
+  /** (T10) Proyecto; null = global. */
+  projectId?: string | null;
+  /** (T10) Documento lógico (= id de su versión 1), número de versión y versión de la que deriva. */
+  documentId?: string;
+  version?: number;
+  basedOn?: string | null;
+  /** (T10) Lo que se aprueba o rechaza: identifica la versión exacta revisada. */
+  versionHash?: string;
 }
+
+/** (T10) Categorías del conocimiento por proyecto. */
+export type ProjectKnowledgeCategory = "architecture" | "conventions" | "decisions";
+
+export interface KnowledgeVersionsResponse {
+  documentId: string;
+  versions: KnowledgeDoc[];
+}
+export interface ProjectKnowledgeExportResponse {
+  projectId: string;
+  markdown: string;
+}
+
+/** (T11) Último análisis del Project Analyst (estado en memoria del backend). */
+export interface ProjectAnalysis {
+  id: string;
+  projectId: string;
+  status: "running" | "completed" | "failed";
+  snapshotId: string;
+  actor: string;
+  startedAt: string;
+  finishedAt: string | null;
+  proposed: Array<{ docId: string; documentId: string; version: number; title: string; category: string; basedOn: string | null; citedFiles: string[] }>;
+  skipped: Array<{ title: string; basedOn: string | null; reason: string }>;
+  error: string | null;
+}
+export interface ProjectAnalysisResponse {
+  projectId: string;
+  analysis: ProjectAnalysis | null;
+}
+
+export type ProjectAnalysisEventType = "project.analysis.started" | "project.analysis.completed" | "project.analysis.failed";
+export const PROJECT_ANALYSIS_EVENT_TYPES: readonly ProjectAnalysisEventType[] = [
+  "project.analysis.started",
+  "project.analysis.completed",
+  "project.analysis.failed",
+];
 
 export interface KnowledgeSearchResponse {
   documents: KnowledgeDoc[];
@@ -454,4 +506,189 @@ export interface ProposalsResponse {
 export interface DecisionsResponse {
   executionId: string;
   decisions: DecisionView[];
+}
+
+// ── Contexto de proyectos (Project Context) — docs/API.md, docs/EVENTS.md §11 ──
+
+export type ContextStatus = "none" | "scanning" | "ready" | "stale" | "failed";
+export type ScanStatus = "queued" | "running" | "completed" | "failed" | "interrupted";
+export type ScanMode = "full" | "incremental";
+export type ScanTrigger = "registered" | "manual" | "stale_check" | "post_apply" | "restart";
+export type FileKind = "source" | "test" | "config" | "manifest" | "doc" | "binary" | "secret" | "other";
+
+export interface ScanStats {
+  listed: number;
+  hashed: number;
+  added: number;
+  modified: number;
+  deleted: number;
+  renamed: number;
+  skipped: number;
+  truncated: boolean;
+}
+
+export interface ContextScan {
+  id: string;
+  projectId: string;
+  mode: ScanMode;
+  status: ScanStatus;
+  trigger: ScanTrigger;
+  gitHead: string | null;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  stats: ScanStats | null;
+  error: string | null;
+}
+
+export interface ScanChanges {
+  added: string[];
+  modified: string[];
+  deleted: string[];
+  renamed: Array<{ from: string; to: string }>;
+  truncated: boolean;
+}
+
+export interface ContextScanDetail extends ContextScan {
+  /** Solo en escaneos completados (máx. 200 rutas por tipo; los totales están en `stats`). */
+  changes: ScanChanges | null;
+  snapshotId: string | null;
+}
+
+export interface EcosystemSummary {
+  kind: string;
+  manifest: string | null;
+  root: string;
+  name: string | null;
+  version: string | null;
+  packageManager: string | null;
+  frameworks: Array<{ name: string; version: string | null; source: string }>;
+  dependencies: Array<{ name: string; spec: string; dev: boolean; resolved: string | null }>;
+  dependenciesTruncated: boolean;
+  scripts: Array<{ name: string; command: string }>;
+  entryPoints: Array<{ path: string; source: string }>;
+  sourceRoots: string[];
+  testFrameworks: string[];
+  tools: string[];
+  configFiles: string[];
+}
+
+/** Resumen técnico del snapshot (`schemaVersion: 2`). Solo se leen los campos que se muestran. */
+export interface ProjectSummary {
+  schemaVersion: number;
+  files: number;
+  truncated: boolean;
+  languages: Array<{ lang: string; files: number }>;
+  ecosystems: EcosystemSummary[];
+  modules: Array<{ path: string; files: number; tests: number }>;
+  modulesTruncated: boolean;
+  configFiles: string[];
+  tests: { files: number; frameworks: string[]; dirs: string[] };
+  warnings: Array<{ path: string; message: string }>;
+}
+
+export interface ContextSnapshot {
+  id: string;
+  projectId: string;
+  scanId: string;
+  createdAt: string;
+  summary: ProjectSummary;
+}
+
+export interface ProjectContext {
+  projectId: string;
+  status: ContextStatus;
+  snapshot: ContextSnapshot | null;
+  currentScan: ContextScan | null;
+  lastScan: ContextScan | null;
+  stale: { reason: "changes_detected" | "project_unavailable"; changedPaths: number | null } | null;
+}
+
+export interface ContextFile {
+  path: string;
+  kind: FileKind;
+  lang: string | null;
+  size: number;
+  mtimeMs: number;
+}
+
+export interface ProjectContextResponse {
+  context: ProjectContext;
+}
+export interface ContextScansResponse {
+  projectId: string;
+  scans: ContextScan[];
+}
+export interface ContextScanResponse {
+  scan: ContextScanDetail;
+}
+export interface RequestScanResponse {
+  scan: ContextScan;
+  deduplicated: boolean;
+}
+export interface ContextFilesResponse {
+  projectId: string;
+  files: ContextFile[];
+  nextCursor: string | null;
+}
+
+/** Resumen del contexto congelado de una ejecución (`ExecutionView.context`). */
+export interface ExecutionContextSummary {
+  huVersion: number;
+  snapshotId: string | null;
+  builtAt: string;
+  stale: boolean;
+  staleReason: string | null;
+  sources: Array<{ kind: string; ref: string; version?: number; title?: string; included?: string }>;
+  files: Array<{ path: string; score: number; reasons: string[] }>;
+  /** false si el texto congelado no coincide con su hash. */
+  intact: boolean;
+}
+
+/** `GET /executions/:id/context`: texto exacto que recibieron Kiro y Claude. */
+export interface ExecutionContextBundles {
+  executionId: string;
+  projectId: string;
+  huVersion: number;
+  snapshotId: string | null;
+  builtAt: string;
+  stale: boolean;
+  staleReason: string | null;
+  technicalBundle: string;
+  developerBundle: string;
+}
+export interface ExecutionContextResponse {
+  context: ExecutionContextBundles;
+}
+
+export type ContextEventType =
+  | "context.scan.queued"
+  | "context.scan.started"
+  | "context.scan.progress"
+  | "context.scan.completed"
+  | "context.scan.failed"
+  | "context.scan.interrupted"
+  | "context.snapshot.published"
+  | "context.freshness.changed";
+
+export const CONTEXT_EVENT_TYPES: readonly ContextEventType[] = [
+  "context.scan.queued",
+  "context.scan.started",
+  "context.scan.progress",
+  "context.scan.completed",
+  "context.scan.failed",
+  "context.scan.interrupted",
+  "context.snapshot.published",
+  "context.freshness.changed",
+];
+
+/** `context.scan.progress`: cifras reales del escáner (sin porcentajes inventados). */
+export interface ScanProgressData {
+  scanId: string;
+  mode: ScanMode;
+  trigger: ScanTrigger;
+  phase: "hashing";
+  listed: number;
+  toHash: number;
+  hashed: number;
 }

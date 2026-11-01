@@ -1,0 +1,42 @@
+.avatar {
+  display: block;
+  flex-shrink: 0;
+}
+
+.plate {
+  fill: var(--color-raised);
+  stroke: var(--color-border-strong);
+  stroke-width: 1;
+}
+
+.ink {
+  fill: none;
+  stroke: var(--color-text);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+circle.ink {
+  fill: var(--color-text);
+  stroke: none;
+}
+
+/* La persona siempre en violeta: es quien interviene. */
+.avatar[data-kind="human"] .plate {
+  fill: var(--color-human-surface);
+  stroke: var(--color-human);
+}
+
+.avatar[data-kind="human"] .ink {
+  stroke: var(--color-human-text);
+}
+
+.avatar[data-kind="human"] circle.ink {
+  fill: var(--color-human-text);
+}
+
+/* Agente de la etapa en curso: filo cian. */
+.avatar[data-active] .plate {
+  stroke: var(--state-running);
+}

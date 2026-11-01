@@ -38,8 +38,12 @@ export function ApprovalDialog({ executionId, open, onClose, reviews, project }:
   const [confirming, setConfirming] = useState<DecisionOption | null>(null);
   const now = useNow(decide.isPending);
 
-  // Congela la primera versión recibida; se libera al cerrar.
-  if (open && shown === null && q.data) setShown(q.data);
+  // Momento de apertura: lo que hubiera en caché puede ser de la decisión anterior.
+  const [openedAt, setOpenedAt] = useState<number | null>(null);
+  if (open && openedAt === null) setOpenedAt(Date.now());
+  if (!open && openedAt !== null) setOpenedAt(null);
+  // Congela la primera versión recibida DESPUÉS de abrir; se libera al cerrar.
+  if (open && shown === null && q.data && openedAt !== null && q.dataUpdatedAt >= openedAt) setShown(q.data);
   if (!open && shown !== null) {
     setShown(null);
     setConfirming(null);
@@ -50,6 +54,8 @@ export function ApprovalDialog({ executionId, open, onClose, reviews, project }:
     const d = ref.current;
     if (d === null) return;
     if (open && !d.open) {
+      // Una decisión anterior ya registrada no cuenta para esta.
+      if (!decide.isPending) decide.reset();
       d.showModal();
       titleRef.current?.focus();
     } else if (!open && d.open) {
@@ -88,12 +94,12 @@ export function ApprovalDialog({ executionId, open, onClose, reviews, project }:
     decide.mutate(
       { executionId, kind, decision: option.decision, hash, feedback: text || undefined },
       {
-        onSuccess: () => {
-          setFeedback("");
-          onClose();
-        },
+        onSuccess: () => setFeedback(""),
       },
     );
+    // La API responde al llegar a la siguiente puerta (puede tardar minutos): se cierra ya para ver
+    // el avance en el pipeline. Un error se muestra en la página (con el diálogo cerrado).
+    onClose();
   }
 
   const error = decide.error ? describeDecisionError(decide.error) : null;

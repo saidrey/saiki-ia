@@ -10,7 +10,7 @@
   color: var(--state-running);
 }
 .mark[data-state="awaiting"] {
-  color: var(--state-awaiting);
+  color: var(--color-human);
 }
 .mark[data-state="failed"] {
   color: var(--state-failed);

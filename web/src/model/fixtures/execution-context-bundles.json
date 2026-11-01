@@ -1,0 +1,13 @@
+{
+  "context": {
+    "executionId": "dev-81e0ab50-7af2-48d0-86b6-ded975898eec",
+    "projectId": "prj-c5e13a55-2fa8-498a-a4fb-5bf90afe6409",
+    "huVersion": 1,
+    "snapshotId": "snap-1609d9a6-94d0-4423-acf1-99ccf5002b94",
+    "builtAt": "2026-10-31T02:21:52.713Z",
+    "stale": false,
+    "staleReason": null,
+    "technicalBundle": "## Contexto del proyecto «shop»\nOrientativo: verifica en el código antes de afirmar algo. Cada sección indica su origen y nivel de confianza.\nSnapshot snap-1609d9a6-94d0-4423-acf1-99ccf5002b94, 9 archivos indexados.\n### Stack [índice: generado del repositorio]\nLenguajes: typescript (5)\n- node «shop» (package.json)\n  Frameworks: react ^19.0.0\n  Pruebas: vitest\n  Scripts: build → tsc -p .; dev → vite; test → vitest run\n  Entradas: src/main.tsx\n  Código en: src\nPruebas del repositorio: 1 archivos (vitest)\n### Archivos relevantes [índice: generado del repositorio]\nCoincidencias de la HU con rutas del índice. No se incluye su contenido: léelos con tus herramientas.\nMódulos relacionados: src/payments/ (3 archivos, 1 pruebas)\n- src/payments/refund.ts (código; coincide: payment, refund)\n- src/payments/refund.test.ts (prueba; prueba de src/payments/refund.ts)\n### Documentación del repositorio [del repositorio, no aprobada en Saiki]\n#### README.md — Pagos\nLos reembolsos se procesan en src/payments.\n#### docs/payments.md — Reembolsos\nUn reembolso parcial devuelve parte del importe.\n",
+    "developerBundle": "## Contexto del proyecto «shop»\nOrientativo: verifica en el código antes de afirmar algo. Cada sección indica su origen y nivel de confianza.\nSnapshot snap-1609d9a6-94d0-4423-acf1-99ccf5002b94, 9 archivos indexados.\n### Stack [índice: generado del repositorio]\nLenguajes: typescript (5)\n- node «shop» (package.json)\n  Frameworks: react ^19.0.0\n  Pruebas: vitest\n  Scripts: build → tsc -p .; dev → vite; test → vitest run\n  Entradas: src/main.tsx\n  Código en: src\nPruebas del repositorio: 1 archivos (vitest)\nLos archivos a cambiar están en el análisis técnico; consulta los archivos reales con tus herramientas.\n"
+  }
+}

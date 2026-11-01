@@ -1,0 +1,184 @@
+{
+  "context": {
+    "projectId": "prj-c5e13a55-2fa8-498a-a4fb-5bf90afe6409",
+    "status": "stale",
+    "snapshot": {
+      "id": "snap-8eb3fab7-e7b9-4b65-9ef9-d64cb0aecf03",
+      "scanId": "scan-29c7d262-d3e1-4957-9f3f-33245d24e906",
+      "createdAt": "2026-10-31T02:21:52.819Z",
+      "summary": {
+        "schemaVersion": 2,
+        "files": 10,
+        "byKind": {
+          "doc": 2,
+          "manifest": 1,
+          "secret": 1,
+          "source": 5,
+          "test": 1
+        },
+        "byLang": {
+          "json": 1,
+          "markdown": 2,
+          "typescript": 6
+        },
+        "source": "git",
+        "truncated": false,
+        "languages": [
+          {
+            "lang": "typescript",
+            "files": 6
+          }
+        ],
+        "ecosystems": [
+          {
+            "kind": "node",
+            "manifest": "package.json",
+            "root": ".",
+            "name": "shop",
+            "version": "1.4.0",
+            "packageManager": null,
+            "frameworks": [
+              {
+                "name": "react",
+                "version": "^19.0.0",
+                "source": "package.json"
+              }
+            ],
+            "dependencies": [
+              {
+                "name": "react",
+                "spec": "^19.0.0",
+                "dev": false,
+                "resolved": null
+              },
+              {
+                "name": "react-dom",
+                "spec": "^19.0.0",
+                "dev": false,
+                "resolved": null
+              },
+              {
+                "name": "typescript",
+                "spec": "^5.6.0",
+                "dev": true,
+                "resolved": null
+              },
+              {
+                "name": "vite",
+                "spec": "^6.0.0",
+                "dev": true,
+                "resolved": null
+              },
+              {
+                "name": "vitest",
+                "spec": "^3.0.0",
+                "dev": true,
+                "resolved": null
+              }
+            ],
+            "dependenciesTruncated": false,
+            "scripts": [
+              {
+                "name": "build",
+                "command": "tsc -p ."
+              },
+              {
+                "name": "dev",
+                "command": "vite"
+              },
+              {
+                "name": "test",
+                "command": "vitest run"
+              }
+            ],
+            "entryPoints": [
+              {
+                "path": "src/main.tsx",
+                "source": "convention"
+              }
+            ],
+            "sourceRoots": [
+              "src"
+            ],
+            "testFrameworks": [
+              "vitest"
+            ],
+            "tools": [
+              "typescript",
+              "vite"
+            ],
+            "configFiles": [],
+            "details": {}
+          }
+        ],
+        "modules": [
+          {
+            "path": "src/orders",
+            "files": 1,
+            "tests": 0
+          },
+          {
+            "path": "src/payments",
+            "files": 3,
+            "tests": 1
+          },
+          {
+            "path": "src/users",
+            "files": 1,
+            "tests": 0
+          }
+        ],
+        "modulesTruncated": false,
+        "configFiles": [],
+        "tests": {
+          "files": 1,
+          "frameworks": [
+            "vitest"
+          ],
+          "dirs": []
+        },
+        "repoDocs": [
+          {
+            "path": "README.md",
+            "hash": "96fb1b6d3012e2c05e80ef87b1644ed7ac85dc672be2af064259a9df4e79077d"
+          },
+          {
+            "path": "docs/payments.md",
+            "hash": "bcacbd32dd318af2f9a36a8091cb3245359cedb752d6f88b18761dd36469d210"
+          }
+        ],
+        "warnings": [],
+        "inputs": {
+          "package.json": "225e3701aef84876cd5a2b95ee3e7ca476ab655785932841afcdbfab80eb9117"
+        }
+      }
+    },
+    "currentScan": null,
+    "lastScan": {
+      "id": "scan-29c7d262-d3e1-4957-9f3f-33245d24e906",
+      "projectId": "prj-c5e13a55-2fa8-498a-a4fb-5bf90afe6409",
+      "mode": "incremental",
+      "status": "completed",
+      "trigger": "manual",
+      "gitHead": null,
+      "createdAt": "2026-10-31T02:21:52.729Z",
+      "startedAt": "2026-10-31T02:21:52.786Z",
+      "finishedAt": "2026-10-31T02:21:52.819Z",
+      "stats": {
+        "listed": 10,
+        "hashed": 9,
+        "added": 1,
+        "modified": 1,
+        "deleted": 0,
+        "renamed": 0,
+        "skipped": 0,
+        "truncated": false
+      },
+      "error": null
+    },
+    "stale": {
+      "reason": "changes_detected",
+      "changedPaths": 11
+    }
+  }
+}

@@ -17,9 +17,10 @@
 }
 
 .title {
-  font-size: var(--text-xl);
-  line-height: var(--leading-tight);
-  font-weight: 600;
+  font-size: 1.875rem;
+  line-height: 1.15;
+  font-weight: 500;
+  letter-spacing: -0.025em;
   overflow-wrap: anywhere;
 }
 
@@ -31,7 +32,8 @@
 
 .heading {
   font-size: var(--text-lg);
-  font-weight: 600;
+  font-weight: 500;
+  letter-spacing: -0.01em;
 }
 
 .text {
@@ -53,15 +55,16 @@
 /* Aviso en línea: "blocked" = una acción se bloqueará; "info" = dato a tener en cuenta. */
 .notice {
   padding: var(--space-3) var(--space-4);
-  border-left: 3px solid var(--state-failed);
-  border-radius: var(--radius-control);
-  background: var(--color-surface);
+  border: 1px solid rgb(239 68 68 / 0.5);
+  border-radius: 12px;
+  background: rgb(239 68 68 / 0.08);
   font-size: var(--text-sm);
   max-width: 90ch;
 }
 
 .notice[data-tone="info"] {
-  border-left-color: var(--color-border-strong);
+  border-color: var(--color-raised);
+  background: rgb(30 41 59 / 0.45);
   color: var(--color-text-2);
 }
 

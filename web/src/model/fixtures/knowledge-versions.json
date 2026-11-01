@@ -1,0 +1,37 @@
+{
+  "documentId": "kb-85a7dbae-322e-4a26-afdb-1c1f91282706",
+  "versions": [
+    {
+      "id": "kb-85a7dbae-322e-4a26-afdb-1c1f91282706",
+      "title": "Importes en céntimos",
+      "category": "conventions",
+      "status": "approved",
+      "content": "Los importes se guardan como enteros en céntimos.\nNunca usar decimales para dinero.",
+      "origin": "said",
+      "createdAt": "2026-10-31T05:12:22.427Z",
+      "updatedAt": "2026-10-31T05:12:22.429Z",
+      "supersededBy": null,
+      "projectId": "prj-6fbc03fd-0e01-4d44-8357-d2f46483d3aa",
+      "documentId": "kb-85a7dbae-322e-4a26-afdb-1c1f91282706",
+      "version": 1,
+      "basedOn": null,
+      "versionHash": "f2a9447f101f34f288fb9371d148b3e470323888b12c7de1a3d963b34519ba28"
+    },
+    {
+      "id": "kb-85a7dbae-322e-4a26-afdb-1c1f91282706-v2",
+      "title": "Importes en céntimos",
+      "category": "conventions",
+      "status": "proposed",
+      "content": "Los importes se guardan como enteros en céntimos.\nNunca usar decimales ni float para dinero.",
+      "origin": "said",
+      "createdAt": "2026-10-31T05:12:22.601Z",
+      "updatedAt": "2026-10-31T05:12:22.601Z",
+      "supersededBy": null,
+      "projectId": "prj-6fbc03fd-0e01-4d44-8357-d2f46483d3aa",
+      "documentId": "kb-85a7dbae-322e-4a26-afdb-1c1f91282706",
+      "version": 2,
+      "basedOn": "kb-85a7dbae-322e-4a26-afdb-1c1f91282706",
+      "versionHash": "04abb733cd897c2d7401e2291253bf1fbbc2f137ccc92dc43df85f612a99c97c"
+    }
+  ]
+}

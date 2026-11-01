@@ -42,9 +42,32 @@
   --state-awaiting-hover: #fbbf24;
   --state-skipped: #475569;
 
+  /*
+   * Workspace de ejecución: «la luz significa algo».
+   * Cian (--state-running) = un agente trabaja ahora; violeta = hace falta una
+   * persona; azul = camino recorrido; oscuridad = aún no ha ocurrido; rojo = error.
+   * --color-human como texto sobre --color-surface: 6.9:1; con --color-ground encima (botón): 7.8:1.
+   */
+  --color-human: #a78bfa;
+  --color-human-hover: #c4b5fd;
+  --color-human-text: #c4b5fd;
+  --color-human-surface: #1c1636;
+  --color-trail: #2563eb;
+  /* Vía recorrida: azul más claro que el anillo de los nodos, para que se distingan. */
+  --color-trail-link: #60a5fa;
+  --glow-trail-link: rgba(96, 165, 250, 0.4);
+  --color-band: #0e1626;
+  --color-band-deep: #0a101c;
+  --color-nav: #0b1220;
+  --glow-agent: rgba(56, 189, 248, 0.3);
+  --glow-trail: rgba(56, 189, 248, 0.35);
+  --glow-human: rgba(167, 139, 250, 0.28);
+  --font-geist: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-geist-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
   /* Tipografía */
-  --font-sans: "Overpass", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: "Overpass Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --font-sans: var(--font-geist);
+  --font-mono: var(--font-geist-mono);
   --text-xs: 0.8125rem; /* 13 */
   --text-sm: 0.875rem; /* 14 */
   --text-md: 0.9375rem; /* 15 */

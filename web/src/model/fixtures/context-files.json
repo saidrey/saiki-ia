@@ -1,0 +1,41 @@
+{
+  "projectId": "prj-c5e13a55-2fa8-498a-a4fb-5bf90afe6409",
+  "files": [
+    {
+      "path": ".env",
+      "kind": "secret",
+      "lang": null,
+      "size": 8,
+      "mtimeMs": 1793413310949
+    },
+    {
+      "path": "README.md",
+      "kind": "doc",
+      "lang": "markdown",
+      "size": 62,
+      "mtimeMs": 1793413310947
+    },
+    {
+      "path": "docs/payments.md",
+      "kind": "doc",
+      "lang": "markdown",
+      "size": 73,
+      "mtimeMs": 1793413310947
+    },
+    {
+      "path": "package.json",
+      "kind": "manifest",
+      "lang": "json",
+      "size": 230,
+      "mtimeMs": 1793413310947
+    },
+    {
+      "path": "src/main.tsx",
+      "kind": "source",
+      "lang": "typescript",
+      "size": 11,
+      "mtimeMs": 1793413310948
+    }
+  ],
+  "nextCursor": "src/main.tsx"
+}

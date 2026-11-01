@@ -1,12 +1,48 @@
 .page {
+  max-width: 1200px;
+}
+
+/* Registro plegable: la lista de proyectos es lo principal. */
+.register {
+  composes: panel from "../styles/ui.module.css";
   max-width: 880px;
 }
 
-.header {
+.registerSummary {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: var(--space-2);
-  max-width: 72ch;
+  min-height: 52px;
+  padding: 0 var(--space-6);
+  font-weight: 500;
+  cursor: pointer;
+  list-style: none;
+}
+
+.registerSummary::-webkit-details-marker {
+  display: none;
+}
+
+.registerSummary::before {
+  content: "+";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid rgb(56 189 248 / 0.45);
+  color: var(--state-running);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.register[open] .registerSummary::before {
+  content: "−";
+}
+
+.register[open] .registerSummary {
+  border-bottom: 1px solid var(--color-raised);
 }
 
 .panel {
@@ -14,9 +50,6 @@
   flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-4) var(--space-6) var(--space-6);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-panel);
-  background: var(--color-surface);
 }
 
 .section {
@@ -42,17 +75,18 @@
 }
 
 .input {
-  min-height: 44px;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-control);
-  background: var(--color-ground);
+  composes: field from "../styles/ui.module.css";
 }
 
 .mono {
   font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
+  color: var(--color-text-2);
   overflow-wrap: anywhere;
+}
+
+.input.mono {
+  color: var(--color-text);
 }
 
 .input.mono {
@@ -111,64 +145,60 @@
 /* La confirmación de escribir en el repositorio real se marca como decisión de riesgo. */
 .confirm {
   padding: var(--space-3);
-  border-left: 3px solid var(--state-awaiting);
+  border: 1px solid rgb(245 158 11 / 0.5);
   background: var(--state-awaiting-surface);
-  border-radius: var(--radius-control);
+  border-radius: 10px;
   font-size: var(--text-sm);
 }
 
-.primary,
-.secondary {
-  min-height: 44px;
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-control);
-  font-weight: 600;
-  cursor: pointer;
-}
-
 .primary {
-  border: 0;
-  background: var(--color-primary);
-  color: var(--color-on-primary);
-}
-
-.primary:hover:not(:disabled) {
-  background: var(--color-primary-hover);
-}
-
-.primary:disabled {
-  cursor: not-allowed;
-  background: var(--color-raised);
-  color: var(--color-text-2);
+  composes: primary from "../styles/ui.module.css";
 }
 
 .secondary {
-  border: 1px solid var(--color-border-strong);
-  background: transparent;
+  composes: secondary from "../styles/ui.module.css";
+  min-height: 36px;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
 }
 
-.secondary:hover:not(:disabled) {
-  background: var(--color-raised);
-}
-
-.secondary:disabled {
-  cursor: not-allowed;
-  color: var(--color-text-2);
-}
-
+/* Proyectos: tarjetas de vidrio en rejilla. */
 .list {
   list-style: none;
   margin: 0;
   padding: 0;
-  border-top: 1px solid var(--color-border);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr));
+  gap: var(--space-4);
 }
 
 .item {
+  composes: panel from "../styles/ui.module.css";
+  position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-4) var(--space-2);
-  border-bottom: 1px solid var(--color-border);
+  gap: var(--space-3);
+  padding: var(--space-6);
+  transition:
+    border-color var(--duration-base) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out);
+}
+
+/* Luz del proyecto: azul si está disponible. */
+.item::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: var(--space-6);
+  right: var(--space-6);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(96 165 250 / 0.6), transparent);
+}
+
+.item:hover {
+  border-color: rgb(96 165 250 / 0.35);
+  box-shadow: 0 0 28px rgb(37 99 235 / 0.12);
 }
 
 .itemHead {
@@ -179,9 +209,19 @@
 }
 
 .itemName {
-  font-size: var(--text-lg);
-  font-weight: 600;
+  font-size: 1.25rem;
+  font-weight: 500;
+  letter-spacing: -0.015em;
   overflow-wrap: anywhere;
+}
+
+.itemName a {
+  text-decoration: none;
+}
+
+.itemName a:hover {
+  color: #bfdbfe;
+  text-decoration: underline;
 }
 
 /* Salud: forma + texto. Disponible = círculo lleno; cualquier problema = cuadrado. */
@@ -199,9 +239,10 @@
 
 .health::before {
   content: "";
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   background: var(--state-failed);
+  box-shadow: 0 0 8px rgb(239 68 68 / 0.6);
 }
 
 .health[data-ok] {
@@ -211,6 +252,7 @@
 .health[data-ok]::before {
   border-radius: 50%;
   background: var(--state-done);
+  box-shadow: 0 0 8px rgb(34 197 94 / 0.6);
 }
 
 .inactive {
@@ -241,9 +283,9 @@
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-panel);
-  background: var(--color-surface);
+  border: 1px solid var(--color-raised);
+  border-radius: 12px;
+  background: rgb(8 13 24 / 0.55);
 }
 
 .history summary {

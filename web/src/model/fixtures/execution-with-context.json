@@ -1,0 +1,140 @@
+{
+  "execution": {
+    "executionId": "dev-81e0ab50-7af2-48d0-86b6-ded975898eec",
+    "sessionId": "s-shop",
+    "request": "implementa esto [P:R]",
+    "category": "development",
+    "status": "esperando decisión humana: aprobación final de la propuesta (reviews_passed)",
+    "phase": "reviews_passed",
+    "currentStage": "final_approval",
+    "stages": [
+      {
+        "id": "hu_analysis",
+        "label": "Análisis de HU",
+        "status": "done",
+        "detail": "Reembolso parcial de pagos [P:R]"
+      },
+      {
+        "id": "technical_analysis",
+        "label": "Análisis técnico",
+        "status": "done",
+        "detail": "análisis [P:R]"
+      },
+      {
+        "id": "feasibility",
+        "label": "Clasificación de viabilidad",
+        "status": "done",
+        "detail": "ready"
+      },
+      {
+        "id": "development",
+        "label": "Desarrollo (propuesta)",
+        "status": "done",
+        "detail": "crear src/payments/partial.ts [P:R]"
+      },
+      {
+        "id": "functional_review",
+        "label": "Revisión funcional",
+        "status": "done",
+        "detail": "ok"
+      },
+      {
+        "id": "quality_review",
+        "label": "Revisión de calidad",
+        "status": "done",
+        "detail": "ok"
+      },
+      {
+        "id": "final_approval",
+        "label": "Aprobación humana final",
+        "status": "running"
+      },
+      {
+        "id": "apply",
+        "label": "Aplicación segura",
+        "status": "pending"
+      },
+      {
+        "id": "verify",
+        "label": "Verificación posterior",
+        "status": "pending"
+      }
+    ],
+    "runtime": "unavailable",
+    "errors": [],
+    "retries": 0,
+    "pendingApproval": {
+      "required": true,
+      "kind": "final_approval",
+      "proposalHash": "6da62c24a63506b1023d87f29906d05a5d247a8d7717e2e4d51bde3174af79ed",
+      "decisionHash": "6da62c24a63506b1023d87f29906d05a5d247a8d7717e2e4d51bde3174af79ed"
+    },
+    "finalResult": {
+      "available": "not_applicable"
+    },
+    "lifecycle": "awaiting_decision",
+    "activity": {
+      "active": false
+    },
+    "activeStage": "none",
+    "awaitingDecision": {
+      "kind": "final_approval",
+      "stageId": "final_approval"
+    },
+    "project": {
+      "id": "prj-c5e13a55-2fa8-498a-a4fb-5bf90afe6409",
+      "name": "shop",
+      "rootPath": "/repos/shop",
+      "applyMode": "sandbox",
+      "boundAt": "2026-10-31T02:21:52.591Z",
+      "current": {
+        "name": "shop",
+        "status": "active",
+        "applyMode": "sandbox",
+        "health": "ok"
+      }
+    },
+    "applyTarget": null,
+    "context": {
+      "huVersion": 1,
+      "snapshotId": "snap-1609d9a6-94d0-4423-acf1-99ccf5002b94",
+      "builtAt": "2026-10-31T02:21:52.713Z",
+      "stale": false,
+      "staleReason": null,
+      "sources": [
+        {
+          "kind": "index",
+          "ref": "snap-1609d9a6-94d0-4423-acf1-99ccf5002b94"
+        },
+        {
+          "kind": "repo-doc",
+          "ref": "README.md",
+          "included": "excerpt"
+        },
+        {
+          "kind": "repo-doc",
+          "ref": "docs/payments.md",
+          "included": "excerpt"
+        }
+      ],
+      "files": [
+        {
+          "path": "src/payments/refund.ts",
+          "score": 5.26,
+          "reasons": [
+            "payment",
+            "refund"
+          ]
+        },
+        {
+          "path": "src/payments/refund.test.ts",
+          "score": 5.26,
+          "reasons": [
+            "prueba de src/payments/refund.ts"
+          ]
+        }
+      ],
+      "intact": true
+    }
+  }
+}

@@ -1,94 +1,133 @@
-.layout {
-  display: flex;
-  gap: var(--space-8);
-  align-items: flex-start;
-}
-
-.rail {
-  flex: 0 0 240px;
-  width: 240px;
-  /* Sin esto, el min-content de un título largo (nowrap) ensancha la columna. */
-  min-width: 0;
-  position: sticky;
-  top: var(--space-4);
-}
-
-.content {
-  flex: 1 1 0;
-  min-width: 0;
-}
-
-.header {
+/*
+ * Workspace de ejecución: navegación plegable | escena. El pipeline es la pieza
+ * principal; el resto se abre bajo demanda en modales desde los accesos de
+ * debajo. Geist solo dentro de esta vista: las variables de fuente se
+ * sustituyen aquí y las heredan todos los componentes (también los modales).
+ */
+.workspace {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  max-width: 100ch;
+  gap: var(--space-6);
 }
 
-.meta {
-  margin: 0;
+/* ── Cabecera compacta ── */
+.header {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2) var(--space-6);
-  font-size: var(--text-sm);
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4) var(--space-6);
 }
 
-.meta div {
+.headText {
   display: flex;
-  gap: var(--space-2);
+  flex-direction: column;
+  gap: var(--space-1);
   min-width: 0;
+  max-width: 90ch;
 }
 
-.meta dt {
+.project {
+  align-self: flex-start;
+  font-size: var(--text-xs);
   color: var(--color-text-2);
 }
 
-.meta dd {
-  margin: 0;
-  min-width: 0;
+.project:hover {
+  color: var(--color-text);
 }
 
-.pipelineSection {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-6) var(--space-4) var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-panel);
-  background: var(--color-surface);
+.title {
+  font-size: 1.75rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
-.sectionHead {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2) var(--space-4);
+.mono {
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
 }
 
 .freshness {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
-.liveText {
-  font-size: var(--text-sm);
+.liveChip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  font-size: var(--text-xs);
   color: var(--color-text-2);
 }
 
-.liveText[data-live] {
-  color: var(--state-running);
+.liveDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--state-pending);
+}
+
+.liveChip[data-live] {
+  border-color: rgb(56 189 248 / 0.4);
+  background: rgb(56 189 248 / 0.08);
+  color: #bae6fd;
+}
+
+.liveChip[data-live] .liveDot {
+  border: 0;
+  background: var(--state-running);
+  box-shadow: 0 0 10px var(--state-running);
+  animation: blink 1.6s ease-in-out infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* Decisión pendiente: visible sin bajar hasta el pipeline. */
+.decide {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-human);
+  border-radius: 999px;
+  background: var(--color-human-surface);
+  color: var(--color-human-text);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 0 14px var(--glow-human);
+}
+
+.decide:hover {
+  background: var(--color-human);
+  color: var(--color-ground);
+}
+
+.decide path {
+  fill: currentColor;
 }
 
 .refresh {
-  min-height: 36px;
-  padding: var(--space-1) var(--space-3);
+  min-height: 32px;
+  padding: 0 var(--space-3);
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-control);
+  border-radius: 8px;
   background: transparent;
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   cursor: pointer;
 }
 
@@ -101,34 +140,217 @@
   cursor: progress;
 }
 
-/* Inspector y registro: lado a lado si hay ancho, apilados si no. */
-.panels {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr));
-  gap: var(--space-6);
-  align-items: start;
+/* ── Banda del pipeline: la pieza principal y la única zona iluminada ── */
+.band {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: min(64vh, 680px);
+  padding: var(--space-6) var(--space-8) var(--space-8);
+  border: 1px solid var(--color-raised);
+  border-radius: 20px;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgb(37 99 235 / 0.08), transparent 70%),
+    linear-gradient(180deg, var(--color-band) 0%, var(--color-band-deep) 100%);
 }
 
+/* Retícula técnica tenue que se desvanece hacia los bordes. */
+.band::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(rgb(148 163 184 / 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(148 163 184 / 0.055) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(ellipse at center, #000 30%, transparent 80%);
+}
+
+.bandHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-4);
+}
+
+.bandTitle {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-2);
+}
+
+.bandSummary {
+  font-size: var(--text-xs);
+  color: var(--color-text-2);
+}
+
+/* ── Accesos a las secciones (abren un modal) ── */
+.tiles {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: var(--space-3);
+}
+
+.tile {
+  --tile-accent: var(--state-running);
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: var(--space-3);
+  row-gap: 2px;
+  width: 100%;
+  min-height: 84px;
+  padding: var(--space-4);
+  border: 1px solid var(--color-raised);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgb(30 41 59 / 0.5), rgb(17 24 39 / 0.6));
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--duration-base) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out),
+    transform var(--duration-base) var(--ease-out);
+}
+
+/* Esquinas técnicas: marcan que es un acceso, no una tarjeta de contenido. */
+.tile::before,
+.tile::after {
+  content: "";
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-color: var(--tile-accent);
+  border-style: solid;
+  opacity: 0.55;
+  transition: opacity var(--duration-base) var(--ease-out);
+}
+
+.tile::before {
+  top: -1px;
+  left: -1px;
+  border-width: 2px 0 0 2px;
+  border-top-left-radius: 14px;
+}
+
+.tile::after {
+  right: -1px;
+  bottom: -1px;
+  border-width: 0 2px 2px 0;
+  border-bottom-right-radius: 14px;
+}
+
+.tile:hover {
+  border-color: color-mix(in srgb, var(--tile-accent) 45%, transparent);
+  box-shadow:
+    0 0 24px color-mix(in srgb, var(--tile-accent) 18%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--tile-accent) 25%, transparent);
+  transform: translateY(-2px);
+}
+
+.tile:hover::before,
+.tile:hover::after {
+  opacity: 1;
+}
+
+.tile[data-tone="success"] {
+  --tile-accent: var(--state-done);
+}
+.tile[data-tone="failure"] {
+  --tile-accent: var(--state-failed);
+}
+.tile[data-tone="warning"] {
+  --tile-accent: var(--state-awaiting);
+}
+.tile[data-tone="stopped"] {
+  --tile-accent: var(--color-border-strong);
+}
+
+.tileIcon {
+  grid-row: span 2;
+  align-self: start;
+  margin-top: 1px;
+  fill: none;
+  stroke: var(--tile-accent);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tile[data-tone="live"] .tileIcon {
+  filter: drop-shadow(0 0 6px var(--state-running));
+}
+
+.tileTitle {
+  font-size: var(--text-md);
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.tileSummary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-size: var(--text-xs);
+  color: var(--color-text-2);
+}
+
+/* ── Contenido de los modales ── */
+.dialogTitle {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.data {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.dataList {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: var(--space-2) var(--space-4);
+}
+
+.dataList dt {
+  color: var(--color-text-2);
+}
+
+.dataList dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ── Avisos ── */
 .interrupted {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--state-failed);
-  border-radius: var(--radius-panel);
+  border-radius: 12px;
 }
 
 .decided {
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--state-done-track);
-  border-radius: var(--radius-panel);
+  border-radius: 12px;
   font-size: var(--text-sm);
 }
 
 .decisionError {
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--state-failed);
-  border-radius: var(--radius-panel);
+  border-radius: 12px;
   font-size: var(--text-sm);
 }
 
@@ -138,19 +360,47 @@
 }
 
 .errors {
-  padding: var(--space-4);
-  border: 1px solid var(--state-failed);
-  border-radius: var(--radius-panel);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
   color: var(--state-failed-text);
 }
 
 .errors ul {
-  margin: var(--space-2) 0 0;
+  margin: 0;
   padding-left: var(--space-6);
 }
 
-@media (max-width: 1100px) {
-  .rail {
-    display: none;
+@media (prefers-reduced-motion: reduce) {
+  .liveChip[data-live] .liveDot {
+    animation: none;
+  }
+  .tile,
+  .tile::before,
+  .tile::after {
+    transition: none;
+  }
+  .tile:hover {
+    transform: none;
+  }
+}
+
+@media (max-width: 860px) {
+  .band {
+    min-height: 0;
+    padding: var(--space-4);
+  }
+
+  .title {
+    font-size: 1.3125rem;
+  }
+
+  .dataList {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .dataList dd {
+    margin-bottom: var(--space-2);
   }
 }

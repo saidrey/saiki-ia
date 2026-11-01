@@ -1,0 +1,83 @@
+.dialog {
+  width: min(880px, calc(100vw - 2rem));
+  max-height: calc(100vh - 3rem);
+  padding: 0;
+  border: 1px solid var(--color-raised);
+  border-radius: 18px;
+  background: linear-gradient(180deg, #162033, var(--color-surface));
+  color: var(--color-text);
+  box-shadow:
+    inset 0 1px 0 rgb(56 189 248 / 0.18),
+    0 24px 80px rgb(0 0 0 / 0.55);
+  overflow: hidden;
+}
+
+.dialog[open] {
+  display: flex;
+  flex-direction: column;
+  animation: rise var(--duration-base) var(--ease-out);
+}
+
+.dialog::backdrop {
+  background: rgb(8 13 24 / 0.72);
+  backdrop-filter: blur(3px);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.99);
+  }
+}
+
+.close {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-ground);
+  color: var(--color-text-2);
+  cursor: pointer;
+}
+
+.close:hover {
+  color: var(--color-text);
+  border-color: var(--color-border-strong);
+}
+
+.close path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.body {
+  overflow-y: auto;
+  padding: var(--space-6);
+  padding-top: var(--space-6);
+}
+
+/* Lo que se abre dentro ya trae su propio título: deja sitio al botón de cerrar. */
+.body > :first-child {
+  padding-right: var(--space-12);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dialog[open] {
+    animation: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .body {
+    padding: var(--space-4);
+  }
+}

@@ -1,0 +1,4 @@
+{
+  "projectId": "prj-6fbc03fd-0e01-4d44-8357-d2f46483d3aa",
+  "markdown": "# Conocimiento aprobado de «shop»\n\n## Importes en céntimos\n\nCategoría: Convenciones. Versión 1, aprobada por said el 2026-10-31T05:12:22.429Z.\n\nLos importes se guardan como enteros en céntimos.\nNunca usar decimales para dinero.\n\n## Capas de la API\n\nCategoría: Arquitectura. Versión 1, aprobada por said el 2026-10-31T05:12:22.431Z.\n\nRutas → servicios → repositorios. Las rutas no acceden a la base de datos.\n"
+}

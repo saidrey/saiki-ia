@@ -1,21 +1,8 @@
+/* Se muestra dentro del modal del workspace: el marco lo pone el diálogo; el tono, el icono del encabezado. */
 .panel {
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
-  padding: var(--space-4) var(--space-6) var(--space-6);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-panel);
-  background: var(--color-surface);
-}
-
-.panel[data-tone="success"] {
-  border-color: var(--state-done-track);
-}
-.panel[data-tone="warning"] {
-  border-color: var(--state-awaiting);
-}
-.panel[data-tone="failure"] {
-  border-color: var(--state-failed);
 }
 
 .head {
@@ -63,32 +50,52 @@
   color: var(--color-text-2);
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
-  gap: var(--space-6);
+/* Indicadores: datos cortos en una franja, cada uno con su forma de estado. */
+.indicators {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
-.fields {
-  margin: 0;
+.indicator {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  font-size: var(--text-sm);
+  gap: 2px;
+  min-width: 150px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-ground);
 }
 
-.fields div {
-  display: grid;
-  grid-template-columns: 170px minmax(0, 1fr);
-  gap: var(--space-3);
+.indicator[data-state="done"] {
+  border-color: rgb(34 197 94 / 0.4);
+}
+.indicator[data-state="failed"] {
+  border-color: rgb(239 68 68 / 0.5);
 }
 
-.fields dt {
+.indicatorLabel {
+  font-size: var(--text-xs);
   color: var(--color-text-2);
 }
 
-.fields dd {
-  margin: 0;
+.indicatorValue {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.indicatorNotes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: calc(-1 * var(--space-3));
 }
 
 .plain {
@@ -107,8 +114,58 @@
   gap: 2px;
 }
 
+/* Revisiones: texto largo, a ancho completo, una tarjeta por revisión. */
+.reviews {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.review {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-raised);
+  border-radius: 12px;
+  background: rgb(8 13 24 / 0.5);
+  font-size: var(--text-sm);
+}
+
 .reviewHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.reviewName {
   font-weight: 600;
+}
+
+.verdict {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 1px var(--space-2);
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  font-size: var(--text-xs);
+  color: var(--color-text-2);
+}
+
+.verdict[data-state="done"] {
+  border-color: rgb(34 197 94 / 0.4);
+  background: rgb(34 197 94 / 0.1);
+  color: #86efac;
+}
+.verdict[data-state="failed"] {
+  border-color: rgb(239 68 68 / 0.5);
+  background: rgb(239 68 68 / 0.1);
+  color: var(--state-failed-text);
 }
 
 .prose {
@@ -154,12 +211,7 @@
 }
 
 @media (max-width: 640px) {
-  .panel {
-    padding: var(--space-4);
-  }
-
-  .fields div {
-    grid-template-columns: 1fr;
-    gap: 0;
+  .indicator {
+    flex: 1 1 140px;
   }
 }

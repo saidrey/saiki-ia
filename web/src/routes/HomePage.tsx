@@ -64,7 +64,7 @@ export function HomePage() {
         <p className={styles.text}>Todavía no hay sesiones. Escribe tu primera solicitud arriba.</p>
       ) : (
         <>
-          <section aria-labelledby="att-title" className={styles.section}>
+          <section aria-labelledby="att-title" className={attention.length > 0 ? `${styles.section} ${styles.attention}` : styles.section}>
             <h2 id="att-title" className={styles.heading}>
               Necesitan tu intervención ({attention.length})
             </h2>

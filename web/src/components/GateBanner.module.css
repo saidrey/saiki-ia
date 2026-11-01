@@ -4,9 +4,10 @@
   gap: var(--space-3);
   align-items: flex-start;
   padding: var(--space-4) var(--space-4);
-  border: 1px solid var(--state-awaiting);
+  border: 1px solid var(--color-human);
   border-radius: var(--radius-panel);
-  background: var(--state-awaiting-surface);
+  background: var(--color-human-surface);
+  box-shadow: 0 0 24px var(--glow-human);
 }
 
 .banner > svg {
@@ -27,14 +28,14 @@
   padding: var(--space-2) var(--space-4);
   border: 0;
   border-radius: var(--radius-control);
-  background: var(--state-awaiting);
+  background: var(--color-human);
   color: var(--color-ground);
   font-weight: 700;
   cursor: pointer;
 }
 
 .action:hover:not(:disabled) {
-  background: var(--state-awaiting-hover);
+  background: var(--color-human-hover);
 }
 
 .action:disabled {

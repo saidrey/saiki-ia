@@ -1,0 +1,22 @@
+{
+  "context": {
+    "projectId": "prj-0f694ac7-7672-4ade-b916-287a8b0983da",
+    "status": "failed",
+    "snapshot": null,
+    "currentScan": null,
+    "lastScan": {
+      "id": "scan-07cb6144-d2fd-4f3d-b0ea-2e8d870a6147",
+      "projectId": "prj-0f694ac7-7672-4ade-b916-287a8b0983da",
+      "mode": "full",
+      "status": "failed",
+      "trigger": "registered",
+      "gitHead": null,
+      "createdAt": "2026-10-31T02:21:51.079Z",
+      "startedAt": "2026-10-31T02:21:51.440Z",
+      "finishedAt": "2026-10-31T02:21:51.489Z",
+      "stats": null,
+      "error": "error inesperado: EACCES: permission denied, open '<proyecto>/src/broken.ts'"
+    },
+    "stale": null
+  }
+}

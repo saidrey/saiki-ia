@@ -30,6 +30,32 @@ export const router = createBrowserRouter([
         lazy: () => import("../routes/ProjectsPage").then((m) => ({ Component: m.ProjectsPage })),
       },
       {
+        path: "projects/:projectId",
+        lazy: () => import("../routes/ProjectPage").then((m) => ({ Component: m.ProjectPage })),
+        children: [
+          {
+            index: true,
+            lazy: () => import("../routes/ProjectOverviewPage").then((m) => ({ Component: m.ProjectOverviewPage })),
+          },
+          {
+            path: "files",
+            lazy: () => import("../routes/ProjectFilesPage").then((m) => ({ Component: m.ProjectFilesPage })),
+          },
+          {
+            path: "scans",
+            lazy: () => import("../routes/ProjectScansPage").then((m) => ({ Component: m.ProjectScansPage })),
+          },
+          {
+            path: "knowledge",
+            lazy: () => import("../routes/ProjectKnowledgePage").then((m) => ({ Component: m.ProjectKnowledgePage })),
+          },
+          {
+            path: "scans/:scanId",
+            lazy: () => import("../routes/ProjectScanPage").then((m) => ({ Component: m.ProjectScanPage })),
+          },
+        ],
+      },
+      {
         path: "knowledge",
         lazy: () => import("../routes/KnowledgePage").then((m) => ({ Component: m.KnowledgePage })),
       },

@@ -3,6 +3,8 @@ import { Link, useSearchParams } from "react-router";
 import { useKnowledgeSearch } from "../hooks/useKnowledge";
 import { absoluteTime, relativeTime } from "../model/format";
 import { CATEGORY_LABEL, labelOf, STATUS_LABEL, validFilter } from "../model/knowledge";
+// Primero lo compartido: los estilos de la página pueden ajustarlo.
+import ui from "../styles/ui.module.css";
 import styles from "./Page.module.css";
 import own from "./KnowledgePage.module.css";
 
@@ -30,11 +32,11 @@ export function KnowledgePage() {
 
   return (
     <section className={styles.page} aria-labelledby="kb-title">
-      <header className={own.header}>
-        <h1 id="kb-title" className={styles.title}>
+      <header className={ui.hero}>
+        <h1 id="kb-title" className={ui.heroTitle}>
           Conocimiento
         </h1>
-        <p className={styles.text}>
+        <p className={ui.heroText}>
           Documentos de la Knowledge Base de Saiki-IA. Solo consulta: promover o editar conocimiento no está disponible en la API.
         </p>
       </header>

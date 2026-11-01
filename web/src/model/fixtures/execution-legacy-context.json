@@ -1,0 +1,4 @@
+{
+  "error": "not_frozen",
+  "message": "Esta ejecución no tiene contexto congelado (anterior a T8 o sin análisis técnico); no se reconstruye con el índice actual."
+}
